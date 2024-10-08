@@ -8,4 +8,10 @@ axum = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 hyper = { workspace = true, features = ["full"] }
 hyper-util = { workspace = true, features = ["full"] }
+# async-trait = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
 hyperlocal = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+hyper-named-pipe = { workspace = true }
