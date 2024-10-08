@@ -1,0 +1,10 @@
+[workspace]
+members = ["rekcod-core", "rekcod-server", "rekcod-agent", "rekcod"]
+resolver = "2"
+
+
+[workspace.dependencies]
+tokio = "1"
+clap = "4"
+axum = "0.7"
+anyhow = "1"
