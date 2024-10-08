@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+axum = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+hyper = { workspace = true, features = ["full"] }
+hyper-util = { workspace = true, features = ["full"] }
+hyperlocal = { workspace = true }
