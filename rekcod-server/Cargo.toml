@@ -4,3 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rekcod-core = { path = "../rekcod-core" }
+axum = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+hyper = { workspace = true, features = ["full"] }
+hyper-util = { workspace = true, features = ["full"] }
+hex = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+sqlx = { workspace = true, features = [
+    "runtime-tokio-native-tls",
+    "sqlite",
+    "uuid",
+    "time",
+] }

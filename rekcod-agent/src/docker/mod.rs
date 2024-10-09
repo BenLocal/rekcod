@@ -1,6 +1,4 @@
-use axum::{extract::Request, response::Response};
-use hyper::StatusCode;
-use hyper_util::client::legacy::ResponseFuture;
+use hyper::Uri;
 
 #[cfg(unix)]
 pub mod unix;
@@ -12,14 +10,20 @@ pub enum DockerProxyClient {
     #[cfg(unix)]
     Unix(unix::SocketFileClient),
     #[cfg(windows)]
-    Windows(win::NamedPipeClient),
+    Windows(win::SocketFileClient),
 }
 
 impl DockerProxyClient {
     pub fn new() -> DockerProxyClient {
         #[cfg(unix)]
-        return DockerProxyClient::Unix(unix::new_client());
+        return unix::SocketFileClient::new_client();
         #[cfg(windows)]
-        return DockerProxyClient::Windows(win::new_client());
+        return win::SocketFileClient::new_client();
     }
+}
+
+pub(crate) trait DockerProxyInterface {
+    fn new_client() -> DockerProxyClient;
+
+    fn uri(&self, path_query: &str) -> anyhow::Result<Uri>;
 }

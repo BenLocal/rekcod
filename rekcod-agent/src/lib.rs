@@ -1,18 +1,16 @@
 use axum::{
-    body::Body,
     extract::{Request, State},
     response::{IntoResponse as _, Response},
     routing::any,
     Router,
 };
+use rekcod_core::constants::{DOCKER_PROXY_PATH, REKCOD_AGENT_PREFIX_PATH};
 
+use crate::docker::DockerProxyInterface;
 use docker::DockerProxyClient;
 use hyper::StatusCode;
-use hyper_util::rt::TokioExecutor;
-use hyperlocal::UnixConnector;
 
-const DOCKER_PROXY_PATH: &'static str = "/proxy.docker";
-
+mod agent;
 mod docker;
 
 pub fn routers() -> Router {
@@ -24,6 +22,7 @@ pub fn routers() -> Router {
             any(docker_proxy_handler),
         )
         .with_state(client)
+        .nest(REKCOD_AGENT_PREFIX_PATH, agent::routers())
 }
 
 async fn docker_proxy_handler(
@@ -40,23 +39,16 @@ async fn docker_proxy_handler(
         })
         .unwrap_or(path);
 
-    match client {
+    let c = match client {
         #[cfg(unix)]
-        DockerProxyClient::Unix(c) => {
-            *req.uri_mut() = hyperlocal::Uri::new("/var/run/docker.sock", path_query).into();
-            Ok(c.request(req)
-                .await
-                .map_err(|_| StatusCode::BAD_REQUEST)?
-                .into_response())
-        }
+        DockerProxyClient::Unix(c) => c,
         #[cfg(windows)]
-        DockerProxyClient::Windows(client) => {
-            let host = hex::encode("//./pipe/docker_engine");
-            *req.uri_mut() = hyperlocal::Uri::new("//./pipe/docker_engine", path_query).into();
-            Ok(c.request(req)
-                .await
-                .map_err(|_| StatusCode::BAD_REQUEST)?
-                .into_response())
-        }
-    }
+        DockerProxyClient::Windows(c) => c,
+    };
+
+    *req.uri_mut() = c.uri(path_query).map_err(|_| StatusCode::BAD_REQUEST)?;
+    Ok(c.request(req)
+        .await
+        .map_err(|_| StatusCode::BAD_REQUEST)?
+        .into_response())
 }
