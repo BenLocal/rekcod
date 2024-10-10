@@ -1,5 +1,4 @@
 use once_cell::sync::OnceCell;
-use rekcod_core::config::ServerConfig;
 
 use crate::{AgentArgs, ServerArgs};
 
@@ -25,7 +24,6 @@ pub enum RekcodServerType {
 pub struct RekcodConfig {
     pub server_type: RekcodServerType,
     pub api_port: u16,
-    pub server: Option<ServerConfig>,
 }
 
 impl From<ServerArgs> for RekcodConfig {
@@ -33,9 +31,6 @@ impl From<ServerArgs> for RekcodConfig {
         Self {
             server_type: RekcodServerType::Server,
             api_port: args.port,
-            server: Some(ServerConfig {
-                db_url: args.db_url,
-            }),
         }
     }
 }
@@ -45,7 +40,6 @@ impl From<AgentArgs> for RekcodConfig {
         Self {
             server_type: RekcodServerType::Agent,
             api_port: args.port,
-            server: None,
         }
     }
 }

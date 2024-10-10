@@ -7,6 +7,7 @@ edition = "2021"
 rekcod-core = { path = "../rekcod-core" }
 axum = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true, features = ["full"] }
 hyper = { workspace = true, features = ["full"] }
 hyper-util = { workspace = true, features = ["full"] }
 hex = { workspace = true }
@@ -20,3 +21,6 @@ sqlx = { workspace = true, features = [
     "uuid",
     "time",
 ] }
+once_cell = { workspace = true }
+rust-embed = { workspace = true }
+futures = { workspace = true }

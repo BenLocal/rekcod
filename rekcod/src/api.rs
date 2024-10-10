@@ -16,7 +16,7 @@ pub(crate) async fn start(cancel: CancellationToken) -> anyhow::Result<()> {
     }
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.api_port)).await?;
-    println!("listening on {}", listener.local_addr()?);
+    info!("listening on {}", listener.local_addr()?);
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
             tokio::select! {

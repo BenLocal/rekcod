@@ -69,14 +69,16 @@
                 "args": [
                     "build",
                     "--bin=rekcod",
-                    "--package=rekcod"
+                    "--package=rekcod",
                 ],
                 "filter": {
                     "name": "rekcod",
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": [
+                "server"
+            ],
             "cwd": "${workspaceFolder}"
         },
         {
