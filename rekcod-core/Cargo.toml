@@ -11,3 +11,5 @@ hyper-util = { workspace = true, features = ["full"] }
 anyhow = { workspace = true }
 axum = { workspace = true }
 tracing = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }

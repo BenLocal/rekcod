@@ -16,14 +16,14 @@ pub struct KvsForDb {
 
 impl DbSet<'static, Sqlite, SqliteRow, Kvs> {
     pub async fn insert(&self, kvs: &KvsForDb) -> anyhow::Result<()> {
-        let _ = sqlx::query!(
+        let _ = sqlx::query(
             "INSERT INTO kvs (module, key, sub_key, third_key, value) VALUES (?, ?, ?, ?, ?)",
-            kvs.module,
-            kvs.key,
-            kvs.sub_key,
-            kvs.third_key,
-            kvs.value
         )
+        .bind(kvs.module.as_str())
+        .bind(kvs.key.as_str())
+        .bind(kvs.sub_key.as_str())
+        .bind(kvs.third_key.as_str())
+        .bind(kvs.value.as_str())
         .execute(self.pool.as_ref())
         .await?
         .rows_affected();
@@ -32,7 +32,9 @@ impl DbSet<'static, Sqlite, SqliteRow, Kvs> {
     }
 
     pub async fn update_value(&self, kvs: &KvsForDb) -> anyhow::Result<()> {
-        let _ = sqlx::query!("UPDATE kvs SET value = ? WHERE id = ?", kvs.value, kvs.id)
+        let _ = sqlx::query("UPDATE kvs SET value = ? WHERE id = ?")
+            .bind(kvs.value.as_str())
+            .bind(kvs.id)
             .execute(self.pool.as_ref())
             .await?
             .rows_affected();
@@ -41,7 +43,8 @@ impl DbSet<'static, Sqlite, SqliteRow, Kvs> {
     }
 
     async fn delete(&self, id: i64) -> anyhow::Result<()> {
-        let _ = sqlx::query!("DELETE FROM kvs WHERE id = ?", id)
+        let _ = sqlx::query("DELETE FROM kvs WHERE id = ?")
+            .bind(id)
             .execute(self.pool.as_ref())
             .await?
             .rows_affected();
@@ -50,7 +53,8 @@ impl DbSet<'static, Sqlite, SqliteRow, Kvs> {
     }
 
     async fn get(&self, id: i64) -> anyhow::Result<Option<KvsForDb>> {
-        let res = sqlx::query_as!(KvsForDb, "SELECT * FROM kvs WHERE id = ?", id)
+        let res = sqlx::query_as::<_, KvsForDb>("SELECT * FROM kvs WHERE id = ?")
+            .bind(id)
             .fetch_optional(self.pool.as_ref())
             .await?;
 
