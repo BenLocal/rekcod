@@ -24,3 +24,4 @@ sqlx = { workspace = true, features = [
 once_cell = { workspace = true }
 rust-embed = { workspace = true }
 futures = { workspace = true }
+bollard = { workspace = true }

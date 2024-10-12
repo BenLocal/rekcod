@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use axum::{routing::get, Router};
-use db::kvs::KvsForDb;
 use futures::future::BoxFuture;
 use rekcod_core::constants::REKCOD_SERVER_PREFIX_PATH;
 
@@ -15,6 +14,7 @@ use tracing::info;
 
 pub mod config;
 mod db;
+mod node;
 mod server;
 
 pub fn routers() -> Router {
@@ -59,19 +59,6 @@ async fn migrate() -> anyhow::Result<()> {
     sqlx::migrate::Migrator::new(Migrations)
         .await?
         .run(&db)
-        .await?;
-
-    // test
-    let db = db::repository().await;
-    db.kvs
-        .insert(&KvsForDb {
-            id: 0,
-            module: "server".to_owned(),
-            key: "server".to_owned(),
-            sub_key: "server".to_owned(),
-            third_key: "server".to_owned(),
-            value: "server".to_owned(),
-        })
         .await?;
 
     info!("sql init success");

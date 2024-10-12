@@ -11,6 +11,7 @@ use docker::DockerProxyClient;
 use hyper::StatusCode;
 
 mod agent;
+pub mod config;
 mod docker;
 
 pub fn routers() -> Router {

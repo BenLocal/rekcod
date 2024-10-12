@@ -7,10 +7,16 @@ edition = "2021"
 rekcod-core = { path = "../rekcod-core" }
 axum = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true, features = ["full"] }
 hyper = { workspace = true, features = ["full"] }
 hyper-util = { workspace = true, features = ["full"] }
 hex = { workspace = true }
 anyhow = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+mime_guess = { workspace = true }
+http-range = { workspace = true }
+once_cell = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 hyperlocal = { workspace = true }

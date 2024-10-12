@@ -1,4 +1,6 @@
 use clap::Parser;
+use rekcod_agent::config::{init_rekcod_agent_config, RekcodAgentConfig};
+use rekcod_core::obj::RekcodType;
 use rekcod_server::config::{init_rekcod_server_config, RekcodServerConfig};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, level_filters::LevelFilter};
@@ -22,6 +24,9 @@ pub(crate) struct ServerArgs {
 
     #[clap(short = 'd', long, default_value = "sqlite://db.sqlite?mode=rwc")]
     pub db_url: String,
+
+    #[clap(long, default_value = "/home/rekcod/data")]
+    pub data_path: String,
 }
 
 #[derive(clap::Args, Clone)]
@@ -29,6 +34,9 @@ pub(crate) struct ServerArgs {
 pub(crate) struct AgentArgs {
     #[arg(short, long, default_value_t = 6734)]
     pub port: u16,
+
+    #[clap(long, default_value = "/home/rekcod/data")]
+    pub data_path: String,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -45,13 +53,27 @@ fn main() -> anyhow::Result<()> {
         RekcodArgs::Server(args) => {
             // just for start
             let arg_clone = args.clone();
-            config::init_rekcod_config(args.into());
-            let s = RekcodServerConfig {
+            init_rekcod_server_config(RekcodServerConfig {
                 db_url: arg_clone.db_url,
-            };
-            init_rekcod_server_config(s);
+            });
+
+            let arg_clone = args.clone();
+            init_rekcod_agent_config(RekcodAgentConfig {
+                data_path: arg_clone.data_path,
+                typ: RekcodType::Master,
+            });
+
+            config::init_rekcod_config(args.into());
         }
-        RekcodArgs::Agent(args) => config::init_rekcod_config(args.into()),
+        RekcodArgs::Agent(args) => {
+            let arg_clone = args.clone();
+            init_rekcod_agent_config(RekcodAgentConfig {
+                data_path: arg_clone.data_path,
+                typ: RekcodType::Agent,
+            });
+
+            config::init_rekcod_config(args.into());
+        }
     };
 
     run_main()
