@@ -17,6 +17,7 @@ pub struct NodeManager {
     nodes: RwLock<HashMap<String, Arc<NodeState>>>,
 }
 
+#[derive(Debug)]
 pub struct NodeState {
     pub node: Node,
     pub docker: bollard::Docker,
@@ -68,6 +69,11 @@ impl NodeManager {
         let mut nodes = self.nodes.write().await;
         nodes.remove(node_name);
         Ok(())
+    }
+
+    pub async fn get_all_nodes(&self) -> anyhow::Result<Vec<Arc<NodeState>>> {
+        let nodes = self.nodes.read().await;
+        Ok(nodes.values().cloned().collect())
     }
 }
 
