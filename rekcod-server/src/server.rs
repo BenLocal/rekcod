@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
 };
 use bollard::{
-    image::{CreateImageOptions, ImportImageOptions, SearchImagesOptions},
+    image::{CreateImageOptions, ImportImageOptions, ListImagesOptions, SearchImagesOptions},
     secret::SystemInfo,
     Docker,
 };
@@ -164,14 +164,17 @@ async fn select_has_docker_image_node(
     expect_name: &str,
 ) -> Option<Arc<NodeState>> {
     for x in nodes.iter().filter(|x| x.node.name != expect_name) {
-        let search_options = SearchImagesOptions {
-            term: image_name,
-            filters: HashMap::new(),
+        let mut filters = HashMap::new();
+        filters.insert("reference", vec!["busybox:latest"]);
+
+        let search_options = ListImagesOptions {
+            all: true,
+            filters,
             ..Default::default()
         };
-        let image = x.docker.search_images(search_options).await;
 
-        if image.is_ok() {
+        let images = x.docker.list_images(Some(search_options)).await;
+        if images.is_ok() && images.unwrap().len() > 0 {
             return Some(x.clone());
         }
     }
@@ -204,20 +207,15 @@ async fn docker_pull_image_from_other_server(
     image_name: &str,
     src_docker: &Docker,
 ) -> anyhow::Result<impl Stream<Item = Result<Vec<u8>, std::io::Error>>> {
-    // let export_docker_client = rekcod_connect(
-    //     Some(format!("http://{}:{}", "39.100.74.178", 6734)),
-    //     rekcod_core::constants::DOCKER_PROXY_PATH,
-    //     4,
-    // )?;
     let stream = src_docker
         .export_image(&image_name)
         .filter_map(|item| async {
             match item {
-                Ok(bytes) => {
-                    println!("export info: {:?}", bytes.len());
-                    Some(bytes)
+                Ok(bytes) => Some(bytes),
+                Err(e) => {
+                    println!("export error: {:?}", e);
+                    None
                 }
-                Err(_) => None,
             }
         });
 
@@ -228,9 +226,114 @@ async fn docker_pull_image_from_other_server(
     let result = docker
         .import_image_stream(options, stream, None)
         .map(|res| match res {
-            Ok(info) => Ok(info.progress.unwrap_or("".to_string()).into_bytes()),
-            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
+            Ok(info) => {
+                println!("import info: {:?}", info);
+                Ok(info.progress.unwrap_or("".to_string()).into_bytes())
+            }
+            Err(e) => {
+                println!("import error: {:?}", e);
+                Err(std::io::Error::new(std::io::ErrorKind::Other, e))
+            }
         });
-
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashMap, io::Write as _};
+
+    use bollard::{
+        image::{ImportImageOptions, ListImagesOptions, SearchImagesOptions},
+        Docker,
+    };
+    use futures::StreamExt as _;
+    use rekcod_core::docker::rekcod_connect;
+    use tokio::fs::File;
+    use tokio_util::codec;
+
+    #[tokio::test]
+    async fn test_export_image() -> anyhow::Result<()> {
+        let docker_client = rekcod_connect(
+            Some(format!("http://{}:{}", "39.100.74.178", 6734)),
+            rekcod_core::constants::DOCKER_PROXY_PATH,
+            40,
+        )?;
+
+        let mut stream = docker_client.export_image("busybox:latest");
+
+        // write to file
+        let mut file = std::fs::File::create("image.tar").unwrap();
+        while let Some(res) = stream.next().await {
+            file.write_all(&res.unwrap()).unwrap();
+        }
+
+        // check
+        assert!(file.metadata().unwrap().len() > 0);
+
+        let current = Docker::connect_with_defaults()?;
+        // import image
+        let options = ImportImageOptions {
+            ..Default::default()
+        };
+        let file = File::open("image.tar").await?;
+        let byte_stream =
+            codec::FramedRead::new(file, codec::BytesCodec::new()).map(|r| r.unwrap().freeze());
+        let _stream =
+            current
+                .import_image_stream(options, byte_stream, None)
+                .map(|res| match res {
+                    Ok(info) => Ok(info.progress.unwrap_or("".to_string()).into_bytes()),
+                    Err(e) => {
+                        println!("import error: {:?}", e);
+                        Err(std::io::Error::new(std::io::ErrorKind::Other, e))
+                    }
+                });
+
+        // delete file
+        std::fs::remove_file("image.tar").unwrap();
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_search_image() -> anyhow::Result<()> {
+        let docker_client = rekcod_connect(
+            Some(format!("http://{}:{}", "39.100.74.178", 6734)),
+            rekcod_core::constants::DOCKER_PROXY_PATH,
+            40,
+        )?;
+
+        let search_options = SearchImagesOptions {
+            term: "busybox:latest".to_string(),
+            ..Default::default()
+        };
+
+        // Search for an image on Docker Hub
+        let res = docker_client.search_images(search_options).await?;
+        assert_eq!(res.len(), 1);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_list_iamge() -> anyhow::Result<()> {
+        let docker_client = rekcod_connect(
+            Some(format!("http://{}:{}", "39.100.74.178", 6734)),
+            rekcod_core::constants::DOCKER_PROXY_PATH,
+            40,
+        )?;
+
+        let mut filters = HashMap::new();
+        filters.insert("reference", vec!["busybox:latest"]);
+
+        let search_options = ListImagesOptions {
+            all: true,
+            filters,
+            ..Default::default()
+        };
+
+        let res = docker_client.list_images(Some(search_options)).await?;
+
+        assert_eq!(res.len(), 1);
+        Ok(())
+    }
 }

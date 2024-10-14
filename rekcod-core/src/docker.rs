@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use bollard::{BollardRequest, Docker};
+use tracing::info;
 
 pub fn rekcod_connect<S>(
     client_addr: Option<S>,
@@ -28,7 +29,7 @@ where
                 uri.path_and_query = uri
                     .path_and_query
                     .map(|paq| {
-                        println!("paq: {:?}", paq);
+                        info!("proxy docker request url: {:?}", paq);
                         hyper::http::uri::PathAndQuery::try_from(format!(
                             "{}{}",
                             path_prefix,

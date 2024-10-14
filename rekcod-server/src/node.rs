@@ -23,6 +23,24 @@ pub struct NodeState {
     pub docker: bollard::Docker,
 }
 
+impl NodeState {
+    fn create(node: KvsForDb) -> anyhow::Result<Arc<NodeState>> {
+        let node = Node::try_from(node)?;
+        let docker_client = rekcod_connect(
+            Some(format!("http://{}:{}", node.ip, node.port)),
+            rekcod_core::constants::DOCKER_PROXY_PATH,
+            40,
+        )?;
+
+        let state = Arc::new(NodeState {
+            node,
+            docker: docker_client,
+        });
+
+        Ok(state)
+    }
+}
+
 impl NodeManager {
     fn new() -> Self {
         Self {
@@ -46,18 +64,8 @@ impl NodeManager {
             .select_one("node", Some(name), None, None)
             .await?;
         if let Some(node) = node {
+            let state = NodeState::create(node)?;
             let mut nodes = self.nodes.write().await;
-            let node = Node::try_from(node)?;
-            let docker_client = rekcod_connect(
-                Some(format!("http://{}:{}", node.ip, node.port)),
-                rekcod_core::constants::DOCKER_PROXY_PATH,
-                4,
-            )?;
-
-            let state = Arc::new(NodeState {
-                node,
-                docker: docker_client,
-            });
             nodes.insert(name.to_owned(), Arc::clone(&state));
             return Ok(Some(state));
         }
@@ -72,6 +80,22 @@ impl NodeManager {
     }
 
     pub async fn get_all_nodes(&self) -> anyhow::Result<Vec<Arc<NodeState>>> {
+        // get from db
+        let db_node = db::repository()
+            .await
+            .kvs
+            .select("node", None, None, None)
+            .await?;
+
+        if !db_node.is_empty() {
+            let mut nodes = self.nodes.write().await;
+            for kv in db_node {
+                let state = NodeState::create(kv)?;
+                nodes.insert(state.node.name.to_owned(), Arc::clone(&state));
+            }
+            return Ok(nodes.values().cloned().collect());
+        }
+
         let nodes = self.nodes.read().await;
         Ok(nodes.values().cloned().collect())
     }

@@ -18,6 +18,10 @@ impl DockerProxyInterface for SocketFileClient {
     }
 
     fn uri(&self, path_query: &str) -> anyhow::Result<hyper::Uri> {
+        // in macos docker host maybe not found /var/run/docker.sock
+        // You can restore it by recreating the symbolic link this way:
+        // `sudo ln -s $HOME/.docker/run/docker.sock /var/run/docker.sock`
+        // https://forums.docker.com/t/is-a-missing-docker-sock-file-a-bug/134351
         let host = env::var("DOCKER_HOST").unwrap_or_else(|_| DEFAULT_DOCKER_HOST.to_string());
         if !host.starts_with("unix://") {
             return Err(anyhow::anyhow!("DOCKER_HOST just support start with unix://").into());
