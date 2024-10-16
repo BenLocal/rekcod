@@ -48,3 +48,45 @@ where
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct SystemInfoResponse {
+    /// cpu usage in percent
+    pub cpu_usage: f32,
+    /// cpu count
+    pub cpu_count: u32,
+    /// available memory bytes
+    pub mem_available: u64,
+    /// total memory bytes
+    pub mem_total: u64,
+
+    pub disks: Vec<SystemDiskInfo>,
+    pub networks: Vec<SystemNetworkInfo>,
+
+    pub system_name: Option<String>,
+    pub kernel_version: Option<String>,
+    pub os_version: Option<String>,
+    pub long_os_version: Option<String>,
+    pub host_name: Option<String>,
+    pub cpu_arch: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct SystemDiskInfo {
+    pub name: String,
+    /// disk free bytes
+    pub free: u64,
+    /// disk total bytes
+    pub total: u64,
+    pub mount: String,
+    pub removeable: bool,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct SystemNetworkInfo {
+    pub name: String,
+    pub ips: Vec<String>,
+    pub mac: String,
+    pub total_out: u64,
+    pub total_in: u64,
+}

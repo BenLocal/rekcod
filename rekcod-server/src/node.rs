@@ -121,7 +121,15 @@ impl TryFrom<KvsForDb> for Node {
     type Error = anyhow::Error;
 
     fn try_from(kvs: KvsForDb) -> Result<Self, Self::Error> {
-        let node: Node = serde_json::from_str(&kvs.value)?;
+        let mut node: Node = serde_json::from_str(&kvs.value)?;
+        // modify name from key
+        node.name = kvs.key;
+        // modify status from sub_key
+        if kvs.sub_key == "online" {
+            node.status = true;
+        } else if kvs.sub_key == "offline" {
+            node.status = false;
+        }
         Ok(node)
     }
 }

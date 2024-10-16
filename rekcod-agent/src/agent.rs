@@ -9,7 +9,10 @@ use axum::{
 use futures::TryStreamExt as _;
 use http_range::HttpRange;
 use hyper::{HeaderMap, StatusCode};
-use rekcod_core::http::ApiError;
+use rekcod_core::{
+    api::resp::{ApiJsonResponse, SystemInfoResponse},
+    http::ApiError,
+};
 use serde::{Deserialize, Serialize};
 use tokio::{
     fs::File,
@@ -17,7 +20,7 @@ use tokio::{
 };
 use tokio_util::io::{ReaderStream, StreamReader};
 
-use crate::config;
+use crate::{config, sys::sys_info};
 
 pub fn routers() -> Router {
     Router::new()
@@ -25,6 +28,7 @@ pub fn routers() -> Router {
         .route("/download", post(download_file))
         .route("/download_range", get(download_range_file))
         .route("/shell", post(shell_stream))
+        .route("/sys", get(get_sys_info))
         .route("/", get(|| async { "rekcod.agent agent" }))
 }
 
@@ -208,4 +212,8 @@ async fn shell_stream(Json(req): Json<ShellRequest>) -> Result<Response, ApiErro
         .status(StatusCode::OK)
         .header(axum::http::header::CONTENT_TYPE, "application/octet-stream")
         .body(body)?);
+}
+
+async fn get_sys_info() -> Result<Json<ApiJsonResponse<SystemInfoResponse>>, ApiError> {
+    Ok(ApiJsonResponse::success(sys_info().into()).into())
 }

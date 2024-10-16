@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
 };
 use bollard::{
-    image::{CreateImageOptions, ImportImageOptions, ListImagesOptions, SearchImagesOptions},
+    image::{CreateImageOptions, ImportImageOptions, ListImagesOptions},
     secret::SystemInfo,
     Docker,
 };
@@ -59,6 +59,7 @@ async fn register_node(
                 .update_value(&db::kvs::KvsForDb {
                     module: "node".to_string(),
                     key: node_name.clone(),
+                    sub_key: if reg_node.status { "online" } else { "offline" }.to_string(),
                     value: serde_json::to_string(&reg_node)?,
                     ..Default::default()
                 })
@@ -79,6 +80,7 @@ async fn register_node(
             .insert(&db::kvs::KvsForDb {
                 module: "node".to_string(),
                 key: node_name.clone(),
+                sub_key: if reg_node.status { "online" } else { "offline" }.to_string(),
                 value: value,
                 ..Default::default()
             })
@@ -164,17 +166,15 @@ async fn select_has_docker_image_node(
     expect_name: &str,
 ) -> Option<Arc<NodeState>> {
     for x in nodes.iter().filter(|x| x.node.name != expect_name) {
-        let mut filters = HashMap::new();
-        filters.insert("reference", vec!["busybox:latest"]);
-
-        let search_options = ListImagesOptions {
+        let list_options = ListImagesOptions {
             all: true,
-            filters,
+            filters: HashMap::from([("reference", vec![image_name])]),
             ..Default::default()
         };
+        let image = x.docker.list_images(Some(list_options)).await;
 
-        let images = x.docker.list_images(Some(search_options)).await;
-        if images.is_ok() && images.unwrap().len() > 0 {
+        if image.is_ok() && images.unwrap().len() > 0 {
+            info!("select node {} has image {}", x.node.name, image_name);
             return Some(x.clone());
         }
     }
@@ -207,15 +207,17 @@ async fn docker_pull_image_from_other_server(
     image_name: &str,
     src_docker: &Docker,
 ) -> anyhow::Result<impl Stream<Item = Result<Vec<u8>, std::io::Error>>> {
+    // let export_docker_client = rekcod_connect(
+    //     Some(format!("http://{}:{}", "39.100.74.178", 6734)),
+    //     rekcod_core::constants::DOCKER_PROXY_PATH,
+    //     4,
+    // )?;
     let stream = src_docker
         .export_image(&image_name)
         .filter_map(|item| async {
             match item {
                 Ok(bytes) => Some(bytes),
-                Err(e) => {
-                    println!("export error: {:?}", e);
-                    None
-                }
+                Err(_) => None,
             }
         });
 
@@ -226,15 +228,10 @@ async fn docker_pull_image_from_other_server(
     let result = docker
         .import_image_stream(options, stream, None)
         .map(|res| match res {
-            Ok(info) => {
-                println!("import info: {:?}", info);
-                Ok(info.progress.unwrap_or("".to_string()).into_bytes())
-            }
-            Err(e) => {
-                println!("import error: {:?}", e);
-                Err(std::io::Error::new(std::io::ErrorKind::Other, e))
-            }
+            Ok(info) => Ok(format!("{}\n", info.progress.unwrap_or("".to_string())).into_bytes()),
+            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
         });
+
     Ok(result)
 }
 

@@ -5,6 +5,7 @@ use axum::{
     Router,
 };
 use rekcod_core::constants::{DOCKER_PROXY_PATH, REKCOD_AGENT_PREFIX_PATH};
+use tokio_util::sync::CancellationToken;
 
 use crate::docker::DockerProxyInterface;
 use docker::DockerProxyClient;
@@ -13,6 +14,8 @@ use hyper::StatusCode;
 mod agent;
 pub mod config;
 mod docker;
+mod register;
+mod sys;
 
 pub fn routers() -> Router {
     let client = DockerProxyClient::new();
@@ -52,4 +55,26 @@ async fn docker_proxy_handler(
         .await
         .map_err(|_| StatusCode::BAD_REQUEST)?
         .into_response())
+}
+
+pub async fn init(cancel: CancellationToken) -> anyhow::Result<()> {
+    let cancel_clone = cancel.clone();
+    tokio::spawn(async move {
+        let cancel_clone_end = cancel_clone.clone();
+        if let Err(e) = register::register_node(cancel_clone).await {
+            println!("agent register error: {}", e);
+            cancel_clone_end.cancel();
+        }
+    });
+
+    let cancel_clone = cancel.clone();
+    tokio::spawn(async move {
+        let cancel_clone_end = cancel_clone.clone();
+        if let Err(e) = sys::sys_monitor(cancel_clone).await {
+            println!("sys monitor error: {}", e);
+            cancel_clone_end.cancel();
+        }
+    });
+
+    Ok(())
 }

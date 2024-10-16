@@ -37,6 +37,9 @@ pub(crate) struct AgentArgs {
 
     #[clap(long, default_value = "/home/rekcod/data")]
     pub data_path: String,
+
+    #[clap(long)]
+    pub master_host: String,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -60,7 +63,9 @@ fn main() -> anyhow::Result<()> {
             let arg_clone = args.clone();
             init_rekcod_agent_config(RekcodAgentConfig {
                 data_path: arg_clone.data_path,
+                master_host: format!("127.0.0.1:{}", arg_clone.port),
                 typ: RekcodType::Master,
+                api_port: arg_clone.port,
             });
 
             config::init_rekcod_config(args.into());
@@ -69,7 +74,9 @@ fn main() -> anyhow::Result<()> {
             let arg_clone = args.clone();
             init_rekcod_agent_config(RekcodAgentConfig {
                 data_path: arg_clone.data_path,
+                master_host: arg_clone.master_host,
                 typ: RekcodType::Agent,
+                api_port: arg_clone.port,
             });
 
             config::init_rekcod_config(args.into());
@@ -96,13 +103,23 @@ async fn run_main() -> anyhow::Result<()> {
     if config.server_type == config::RekcodServerType::Server {
         let cancel_clone = cancel.clone();
         tokio::spawn(async move {
-            let ccc = cancel_clone.clone();
+            let cancel_clone_end = cancel_clone.clone();
             if let Err(e) = rekcod_server::init(cancel_clone).await {
                 println!("server init error: {}", e);
-                ccc.cancel();
+                cancel_clone_end.cancel();
             }
         });
     }
+
+    // init agent after server
+    let cancel_clone = cancel.clone();
+    tokio::spawn(async move {
+        let cancel_clone_end = cancel_clone.clone();
+        if let Err(e) = rekcod_agent::init(cancel_clone).await {
+            println!("agent init error: {}", e);
+            cancel_clone_end.cancel();
+        }
+    });
 
     loop {
         tokio::select! {

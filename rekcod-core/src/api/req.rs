@@ -21,6 +21,8 @@ pub struct RegisterNodeRequest {
     pub os: String,
     /// agent os version
     pub os_version: String,
+    /// agent os long version
+    pub os_long_version: String,
     /// agent os kernel
     pub os_kernel: String,
     /// agent os status true or false
