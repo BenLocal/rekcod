@@ -25,3 +25,4 @@ once_cell = { workspace = true }
 rust-embed = { workspace = true }
 futures = { workspace = true }
 bollard = { workspace = true }
+uuid = { workspace = true, features = ["v4", "fast-rng", "macro-diagnostics"] }

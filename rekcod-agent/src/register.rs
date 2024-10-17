@@ -1,4 +1,6 @@
-use rekcod_core::{api::req::RegisterNodeRequest, constants::REKCOD_SERVER_PREFIX_PATH};
+use rekcod_core::{
+    api::req::RegisterNodeRequest, client::get_client, constants::REKCOD_SERVER_PREFIX_PATH,
+};
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
@@ -35,9 +37,10 @@ pub(crate) async fn register_node(cancel: CancellationToken) -> anyhow::Result<(
                     os_kernel: sys.kernel_version.clone().unwrap_or("unknown".to_string()),
                     status: true,
                 };
-                if let Err(e) = reqwest::Client::new().post(url).json(&req).send().await {
+                if let Err(e) = get_client()?.post(url).json(&req).send().await {
                     error!("register node error: {:?}", e);
                 }
+
             }
         }
     }

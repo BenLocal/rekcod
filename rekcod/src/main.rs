@@ -1,6 +1,6 @@
 use clap::Parser;
 use rekcod_agent::config::{init_rekcod_agent_config, RekcodAgentConfig};
-use rekcod_core::obj::RekcodType;
+use rekcod_core::{auth::set_token, obj::RekcodType};
 use rekcod_server::config::{init_rekcod_server_config, RekcodServerConfig};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, level_filters::LevelFilter};
@@ -27,6 +27,9 @@ pub(crate) struct ServerArgs {
 
     #[clap(long, default_value = "/home/rekcod/data")]
     pub data_path: String,
+
+    #[clap(long, default_value = "/etc/rekcod")]
+    pub etc_path: String,
 }
 
 #[derive(clap::Args, Clone)]
@@ -40,6 +43,46 @@ pub(crate) struct AgentArgs {
 
     #[clap(long)]
     pub master_host: String,
+
+    #[clap(long, default_value = "/etc/rekcod")]
+    pub etc_path: String,
+
+    #[clap(long)]
+    pub token: String,
+}
+
+impl Into<RekcodAgentConfig> for AgentArgs {
+    fn into(self) -> RekcodAgentConfig {
+        RekcodAgentConfig {
+            data_path: self.data_path,
+            master_host: self.master_host,
+            typ: RekcodType::Agent,
+            api_port: self.port,
+            etc_path: self.etc_path,
+        }
+    }
+}
+
+impl Into<RekcodServerConfig> for ServerArgs {
+    fn into(self) -> RekcodServerConfig {
+        RekcodServerConfig {
+            db_url: self.db_url,
+            etc_path: self.etc_path,
+            api_port: self.port,
+        }
+    }
+}
+
+impl Into<RekcodAgentConfig> for ServerArgs {
+    fn into(self) -> RekcodAgentConfig {
+        RekcodAgentConfig {
+            data_path: self.data_path,
+            master_host: format!("127.0.0.1:{}", self.port),
+            typ: RekcodType::Master,
+            api_port: self.port,
+            etc_path: self.etc_path,
+        }
+    }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -56,29 +99,19 @@ fn main() -> anyhow::Result<()> {
         RekcodArgs::Server(args) => {
             // just for start
             let arg_clone = args.clone();
-            init_rekcod_server_config(RekcodServerConfig {
-                db_url: arg_clone.db_url,
-            });
+            init_rekcod_server_config(arg_clone.into());
 
             let arg_clone = args.clone();
-            init_rekcod_agent_config(RekcodAgentConfig {
-                data_path: arg_clone.data_path,
-                master_host: format!("127.0.0.1:{}", arg_clone.port),
-                typ: RekcodType::Master,
-                api_port: arg_clone.port,
-            });
+            init_rekcod_agent_config(arg_clone.into());
 
             config::init_rekcod_config(args.into());
         }
         RekcodArgs::Agent(args) => {
             let arg_clone = args.clone();
-            init_rekcod_agent_config(RekcodAgentConfig {
-                data_path: arg_clone.data_path,
-                master_host: arg_clone.master_host,
-                typ: RekcodType::Agent,
-                api_port: arg_clone.port,
-            });
+            init_rekcod_agent_config(arg_clone.into());
 
+            // init agent token
+            set_token(args.token.clone());
             config::init_rekcod_config(args.into());
         }
     };

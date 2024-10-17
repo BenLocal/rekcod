@@ -2,6 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use axum::{
     body::Body,
+    middleware,
     response::Response,
     routing::{get, post},
     Json, Router,
@@ -11,6 +12,7 @@ use http_range::HttpRange;
 use hyper::{HeaderMap, StatusCode};
 use rekcod_core::{
     api::resp::{ApiJsonResponse, SystemInfoResponse},
+    auth::token_auth,
     http::ApiError,
 };
 use serde::{Deserialize, Serialize};
@@ -30,6 +32,7 @@ pub fn routers() -> Router {
         .route("/shell", post(shell_stream))
         .route("/sys", get(get_sys_info))
         .route("/", get(|| async { "rekcod.agent agent" }))
+        .layer(middleware::from_fn(token_auth))
 }
 
 #[derive(Deserialize, Serialize, Debug)]

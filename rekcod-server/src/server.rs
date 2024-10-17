@@ -1,9 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
 use axum::{
-    extract::Path,
-    response::Response,
-    routing::{get, post},
+    body::Body,
+    extract::{Path, Request, State},
+    middleware,
+    response::{IntoResponse as _, Response},
+    routing::{any, get, post},
     Json, Router,
 };
 use bollard::{
@@ -12,20 +14,31 @@ use bollard::{
     Docker,
 };
 use futures::{Stream, StreamExt};
-use hyper::StatusCode;
+use hyper::{StatusCode, Uri};
+use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
 use rekcod_core::{
     api::{req::RegisterNodeRequest, resp::ApiJsonResponse},
+    auth::token_auth,
+    constants::{DOCKER_PROXY_PATH, REKCOD_AGENT_PREFIX_PATH},
     http::ApiError,
 };
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{error, info};
 
 use crate::{
     db,
     node::{node_manager, Node, NodeState},
 };
 
+type Client = hyper_util::client::legacy::Client<HttpConnector, Body>;
+
 pub fn routers() -> Router {
+    let client: Client =
+        hyper_util::client::legacy::Client::<(), ()>::builder(TokioExecutor::new())
+            .build(HttpConnector::new());
+
+    let ctx = Arc::new(client);
+
     Router::new()
         .route("/", get(|| async { "rekcod.server server" }))
         .route("/node/register", post(register_node))
@@ -35,6 +48,9 @@ pub fn routers() -> Router {
             "/node/:node_name/docker/image/pull/:image_name",
             post(docker_image_pull),
         )
+        .route("/node/:node_name/:typ/*sub", any(node_proxy))
+        .with_state(Arc::clone(&ctx))
+        .layer(middleware::from_fn(token_auth))
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -171,9 +187,9 @@ async fn select_has_docker_image_node(
             filters: HashMap::from([("reference", vec![image_name])]),
             ..Default::default()
         };
-        let image = x.docker.list_images(Some(list_options)).await;
+        let images = x.docker.list_images(Some(list_options)).await;
 
-        if image.is_ok() && images.unwrap().len() > 0 {
+        if images.is_ok() && images.unwrap().len() > 0 {
             info!("select node {} has image {}", x.node.name, image_name);
             return Some(x.clone());
         }
@@ -235,6 +251,53 @@ async fn docker_pull_image_from_other_server(
     Ok(result)
 }
 
+async fn node_proxy(
+    State(ctx): State<Arc<Client>>,
+    Path((node_name, typ, _sub)): Path<(String, String, String)>,
+    mut req: Request,
+) -> Result<Response, StatusCode> {
+    let path = req.uri().path();
+    let path_query = req
+        .uri()
+        .path_and_query()
+        .map(|v| {
+            let without_prefix = v
+                .as_str()
+                .strip_prefix(format!("/node/{}/{}", node_name, typ).as_str())
+                .unwrap_or(path);
+            without_prefix
+        })
+        .unwrap_or(path);
+
+    let node = node_manager()
+        .get_node(&node_name)
+        .await
+        .map_err(|e| {
+            error!("node {} not found: {}", node_name, e);
+            StatusCode::BAD_REQUEST
+        })?
+        .ok_or(StatusCode::BAD_REQUEST)?;
+
+    let s = match typ.as_str() {
+        "proxy.docker" => DOCKER_PROXY_PATH,
+        "proxy.base" => REKCOD_AGENT_PREFIX_PATH,
+        _ => "",
+    };
+
+    let uri = format!(
+        "http://{}:{}{}{}",
+        node.node.ip, node.node.port, s, path_query
+    );
+
+    *req.uri_mut() = Uri::try_from(uri).map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    Ok(ctx
+        .request(req)
+        .await
+        .map_err(|_| StatusCode::BAD_REQUEST)?
+        .into_response())
+}
+
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, io::Write as _};
@@ -244,7 +307,7 @@ mod tests {
         Docker,
     };
     use futures::StreamExt as _;
-    use rekcod_core::docker::rekcod_connect;
+    use rekcod_core::{auth::get_token, docker::rekcod_connect};
     use tokio::fs::File;
     use tokio_util::codec;
 
@@ -254,6 +317,7 @@ mod tests {
             Some(format!("http://{}:{}", "39.100.74.178", 6734)),
             rekcod_core::constants::DOCKER_PROXY_PATH,
             40,
+            get_token(),
         )?;
 
         let mut stream = docker_client.export_image("busybox:latest");
@@ -297,6 +361,7 @@ mod tests {
             Some(format!("http://{}:{}", "39.100.74.178", 6734)),
             rekcod_core::constants::DOCKER_PROXY_PATH,
             40,
+            get_token(),
         )?;
 
         let search_options = SearchImagesOptions {
@@ -317,6 +382,7 @@ mod tests {
             Some(format!("http://{}:{}", "39.100.74.178", 6734)),
             rekcod_core::constants::DOCKER_PROXY_PATH,
             40,
+            get_token(),
         )?;
 
         let mut filters = HashMap::new();

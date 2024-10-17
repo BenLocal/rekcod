@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use once_cell::sync::Lazy;
-use rekcod_core::{api::req::RegisterNodeRequest, docker::rekcod_connect};
+use rekcod_core::{api::req::RegisterNodeRequest, auth::get_token, docker::rekcod_connect};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -30,6 +30,7 @@ impl NodeState {
             Some(format!("http://{}:{}", node.ip, node.port)),
             rekcod_core::constants::DOCKER_PROXY_PATH,
             40,
+            get_token(),
         )?;
 
         let state = Arc::new(NodeState {

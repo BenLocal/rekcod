@@ -1,8 +1,8 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, path::Path};
 
 use axum::{routing::get, Router};
 use futures::future::BoxFuture;
-use rekcod_core::constants::REKCOD_SERVER_PREFIX_PATH;
+use rekcod_core::{auth::set_token, constants::REKCOD_SERVER_PREFIX_PATH, obj::RekcodCfg};
 
 use sqlx::{
     error::BoxDynError,
@@ -11,6 +11,7 @@ use sqlx::{
 };
 use tokio_util::sync::CancellationToken;
 use tracing::info;
+use uuid::Uuid;
 
 pub mod config;
 mod db;
@@ -24,8 +25,8 @@ pub fn routers() -> Router {
 }
 
 pub async fn init(_cancel: CancellationToken) -> anyhow::Result<()> {
+    init_rekcod_client_config().await?;
     migrate().await?;
-
     Ok(())
 }
 
@@ -108,4 +109,35 @@ impl MigrationSource<'static> for Migrations {
             Ok(migrations)
         })
     }
+}
+
+async fn init_rekcod_client_config() -> anyhow::Result<()> {
+    let config = config::rekcod_server_config();
+    let etc_dir = Path::new(&config.etc_path);
+    if !etc_dir.exists() {
+        tokio::fs::create_dir_all(etc_dir).await?;
+    }
+
+    // check config file exists
+    let cfg_path = etc_dir.join("rekcod.json");
+    if cfg_path.exists() {
+        // read token from file
+        let cfg_str = tokio::fs::read_to_string(&cfg_path).await?;
+        let c = serde_json::from_str::<RekcodCfg>(&cfg_str)?;
+        set_token(c.token.clone());
+
+        info!("init token success: {}", c.token);
+        return Ok(());
+    }
+
+    let token = Uuid::new_v4().to_string();
+    set_token(token.clone());
+    let c = RekcodCfg {
+        host: format!("127.0.0.1:{}", config.api_port),
+        token: token.clone(),
+    };
+
+    tokio::fs::write(cfg_path, serde_json::to_string(&c)?).await?;
+    info!("init token success: {}", token);
+    Ok(())
 }

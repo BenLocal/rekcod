@@ -4,6 +4,7 @@ use rekcod_core::obj::RekcodType;
 #[derive(Debug, Clone)]
 pub struct RekcodAgentConfig {
     pub data_path: String,
+    pub etc_path: String,
     pub master_host: String,
     pub api_port: u16,
     pub typ: RekcodType,

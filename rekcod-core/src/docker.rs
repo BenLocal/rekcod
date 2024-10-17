@@ -1,12 +1,16 @@
 use std::sync::Arc;
 
+use axum::http::HeaderValue;
 use bollard::{BollardRequest, Docker};
 use tracing::info;
+
+use crate::auth::TOEKN_HEADER_KEY;
 
 pub fn rekcod_connect<S>(
     client_addr: Option<S>,
     path_prefix: &str,
     timeout: u64,
+    token: &'static str,
 ) -> anyhow::Result<Docker>
 where
     S: Into<String>,
@@ -39,6 +43,9 @@ where
                     .transpose()
                     .map_err(bollard::errors::Error::from)?;
                 p.uri = uri.try_into().map_err(bollard::errors::Error::from)?;
+                p.headers
+                    .insert(TOEKN_HEADER_KEY, HeaderValue::from_static(token));
+
                 let req = BollardRequest::from_parts(p, b);
                 http_client
                     .request(req)
