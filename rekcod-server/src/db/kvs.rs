@@ -43,25 +43,6 @@ impl DbSet<'static, Sqlite, SqliteRow, Kvs> {
         Ok(())
     }
 
-    async fn delete(&self, id: i64) -> anyhow::Result<()> {
-        let _ = sqlx::query("DELETE FROM kvs WHERE id = ?")
-            .bind(id)
-            .execute(self.pool.as_ref())
-            .await?
-            .rows_affected();
-
-        Ok(())
-    }
-
-    async fn get(&self, id: i64) -> anyhow::Result<Option<KvsForDb>> {
-        let res = sqlx::query_as::<_, KvsForDb>("SELECT * FROM kvs WHERE id = ?")
-            .bind(id)
-            .fetch_optional(self.pool.as_ref())
-            .await?;
-
-        Ok(res)
-    }
-
     pub async fn select_one(
         &self,
         module: &str,
