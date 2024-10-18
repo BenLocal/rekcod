@@ -9,8 +9,8 @@ mod api;
 mod config;
 
 #[derive(Parser)]
-#[command(name = "rekcod")]
-#[command(bin_name = "rekcod")]
+#[command(name = "rekcodd")]
+#[command(bin_name = "rekcodd")]
 enum RekcodArgs {
     Server(ServerArgs),
     Agent(AgentArgs),

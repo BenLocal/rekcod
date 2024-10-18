@@ -64,15 +64,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'rekcod'",
+            "name": "Debug executable 'rekcodd'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=rekcod",
-                    "--package=rekcod",
+                    "--bin=rekcodd",
+                    "--package=rekcodd"
                 ],
                 "filter": {
-                    "name": "rekcod",
+                    "name": "rekcodd",
                     "kind": "bin"
                 }
             },
@@ -84,16 +84,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'rekcod'",
+            "name": "Debug unit tests in executable 'rekcodd'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=rekcod",
-                    "--package=rekcod"
+                    "--bin=rekcodd",
+                    "--package=rekcodd"
                 ],
                 "filter": {
-                    "name": "rekcod",
+                    "name": "rekcodd",
                     "kind": "bin"
                 }
             },
