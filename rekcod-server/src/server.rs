@@ -17,10 +17,14 @@ use futures::{Stream, StreamExt};
 use hyper::{StatusCode, Uri};
 use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
 use rekcod_core::{
-    api::{req::RegisterNodeRequest, resp::ApiJsonResponse},
+    api::{
+        req::{NodeListRequest, RegisterNodeRequest},
+        resp::{ApiJsonResponse, NodeItemResponse},
+    },
     auth::token_auth,
     constants::{DOCKER_PROXY_PATH, REKCOD_AGENT_PREFIX_PATH},
     http::ApiError,
+    obj::NodeStatus,
 };
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
@@ -75,7 +79,12 @@ async fn register_node(
                 .update_value(&db::kvs::KvsForDb {
                     module: "node".to_string(),
                     key: node_name.clone(),
-                    sub_key: if reg_node.status { "online" } else { "offline" }.to_string(),
+                    sub_key: if reg_node.status {
+                        NodeStatus::Online
+                    } else {
+                        NodeStatus::Offline
+                    }
+                    .to_string(),
                     value: serde_json::to_string(&reg_node)?,
                     ..Default::default()
                 })
@@ -96,7 +105,12 @@ async fn register_node(
             .insert(&db::kvs::KvsForDb {
                 module: "node".to_string(),
                 key: node_name.clone(),
-                sub_key: if reg_node.status { "online" } else { "offline" }.to_string(),
+                sub_key: if reg_node.status {
+                    NodeStatus::Online
+                } else {
+                    NodeStatus::Offline
+                }
+                .to_string(),
                 value: value,
                 ..Default::default()
             })
@@ -110,15 +124,22 @@ async fn register_node(
     Ok(ApiJsonResponse::success(resp).into())
 }
 
-async fn list_node() -> Result<Json<ApiJsonResponse<Vec<Node>>>, ApiError> {
-    info!("list node");
+async fn list_node(
+    Json(req): Json<NodeListRequest>,
+) -> Result<Json<ApiJsonResponse<Vec<NodeItemResponse>>>, ApiError> {
     let repositry = db::repository().await;
+
+    let subkey = if req.all {
+        None
+    } else {
+        Some(NodeStatus::Online.to_string())
+    };
     let nodes = repositry
         .kvs
-        .select("node", None, None, None)
+        .select("node", None, subkey.as_deref(), None)
         .await?
         .into_iter()
-        .map(|kvs| Node::try_from(kvs).unwrap())
+        .map(|kvs| Node::try_from(kvs).unwrap().into())
         .collect();
 
     Ok(ApiJsonResponse::success(nodes).into())

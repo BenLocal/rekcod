@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tabled::Tabled;
 
 #[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Default)]
@@ -9,6 +10,23 @@ where
     msg: String,
     code: i32,
     data: Option<T>,
+}
+
+impl<T> ApiJsonResponse<T>
+where
+    T: Sized + Serialize + Send + Sync,
+{
+    pub fn msg(&self) -> &str {
+        &self.msg
+    }
+
+    pub fn code(&self) -> i32 {
+        self.code
+    }
+
+    pub fn data(&self) -> Option<&T> {
+        self.data.as_ref()
+    }
 }
 
 #[allow(dead_code)]
@@ -89,4 +107,19 @@ pub struct SystemNetworkInfo {
     pub mac: String,
     pub total_out: u64,
     pub total_in: u64,
+}
+
+#[derive(Serialize, Deserialize, Default, Tabled)]
+#[tabled(rename_all = "UPPERCASE")]
+pub struct NodeItemResponse {
+    pub name: String,
+    pub host_name: String,
+    pub ip: String,
+    pub port: u16,
+    pub version: String,
+    pub arch: String,
+    pub os: String,
+    pub os_version: String,
+    pub os_kernel: String,
+    pub status: bool,
 }

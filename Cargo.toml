@@ -1,5 +1,5 @@
 [workspace]
-members = ["rekcod-core", "rekcod-server", "rekcod-agent", "rekcodd"]
+members = ["rekcod-core", "rekcod-server", "rekcod-agent", "rekcodd", "rekcod"]
 resolver = "2"
 
 
@@ -36,3 +36,4 @@ http-range = "0.1"
 local-ip-address = "0.6"
 sysinfo = "0.32"
 uuid = "1"
+tabled = "0.16"

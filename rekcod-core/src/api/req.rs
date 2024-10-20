@@ -31,3 +31,9 @@ pub struct RegisterNodeRequest {
     /// if status is true, agent was start
     pub status: bool,
 }
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+#[serde(default)]
+pub struct NodeListRequest {
+    pub all: bool,
+}

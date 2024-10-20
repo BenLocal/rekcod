@@ -1,7 +1,12 @@
 use std::{collections::HashMap, sync::Arc};
 
 use once_cell::sync::Lazy;
-use rekcod_core::{api::req::RegisterNodeRequest, auth::get_token, docker::rekcod_connect};
+use rekcod_core::{
+    api::{req::RegisterNodeRequest, resp::NodeItemResponse},
+    auth::get_token,
+    docker::rekcod_connect,
+    obj::NodeStatus,
+};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -126,11 +131,10 @@ impl TryFrom<KvsForDb> for Node {
         // modify name from key
         node.name = kvs.key;
         // modify status from sub_key
-        if kvs.sub_key == "online" {
-            node.status = true;
-        } else if kvs.sub_key == "offline" {
-            node.status = false;
-        }
+        match NodeStatus::from(&kvs.sub_key) {
+            NodeStatus::Online => node.status = true,
+            NodeStatus::Offline => node.status = false,
+        };
         Ok(node)
     }
 }
@@ -153,5 +157,22 @@ impl TryFrom<RegisterNodeRequest> for Node {
             status: req.status,
         };
         Ok(node)
+    }
+}
+
+impl Into<NodeItemResponse> for Node {
+    fn into(self) -> NodeItemResponse {
+        NodeItemResponse {
+            name: self.name,
+            host_name: self.host_name,
+            ip: self.ip,
+            port: self.port,
+            version: self.version,
+            arch: self.arch,
+            os: self.os,
+            os_version: self.os_version,
+            os_kernel: self.os_kernel,
+            status: self.status,
+        }
     }
 }
