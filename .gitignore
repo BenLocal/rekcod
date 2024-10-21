@@ -22,6 +22,5 @@ Cargo.lock
 
 db.sqlite
 rekcod-server/image.tar
-db.sqlite
 .vscode/launch.json
 /.vscode

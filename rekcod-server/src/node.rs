@@ -85,12 +85,18 @@ impl NodeManager {
         Ok(())
     }
 
-    pub async fn get_all_nodes(&self) -> anyhow::Result<Vec<Arc<NodeState>>> {
+    pub async fn get_all_nodes(&self, all: bool) -> anyhow::Result<Vec<Arc<NodeState>>> {
+        let subkey = if all {
+            None
+        } else {
+            Some(NodeStatus::Online.to_string())
+        };
+
         // get from db
         let db_node = db::repository()
             .await
             .kvs
-            .select("node", None, None, None)
+            .select("node", None, subkey.as_deref(), None)
             .await?;
 
         if !db_node.is_empty() {
@@ -100,10 +106,11 @@ impl NodeManager {
                 nodes.insert(state.node.name.to_owned(), Arc::clone(&state));
             }
             return Ok(nodes.values().cloned().collect());
+        } else {
+            self.nodes.write().await.clear();
         }
 
-        let nodes = self.nodes.read().await;
-        Ok(nodes.values().cloned().collect())
+        Ok(vec![])
     }
 }
 

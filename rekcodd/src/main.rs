@@ -1,6 +1,10 @@
 use clap::Parser;
 use rekcod_agent::config::{init_rekcod_agent_config, RekcodAgentConfig};
-use rekcod_core::{auth::set_token, obj::RekcodType};
+use rekcod_core::{
+    auth::set_token,
+    constants::{REKCOD_CONFIG_DEFAULT_PATH, REKCOD_DATA_DEFAULT_PATH},
+    obj::RekcodType,
+};
 use rekcod_server::config::{init_rekcod_server_config, RekcodServerConfig};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, level_filters::LevelFilter};
@@ -25,11 +29,11 @@ pub(crate) struct ServerArgs {
     #[clap(short = 'd', long, default_value = "sqlite://db.sqlite?mode=rwc")]
     pub db_url: String,
 
-    #[clap(long, default_value = "/home/rekcod/data")]
+    #[clap(long, default_value = REKCOD_DATA_DEFAULT_PATH)]
     pub data_path: String,
 
-    #[clap(long, default_value = "/etc/rekcod")]
-    pub etc_path: String,
+    #[clap(long, default_value = REKCOD_CONFIG_DEFAULT_PATH)]
+    pub config_path: String,
 }
 
 #[derive(clap::Args, Clone)]
@@ -38,14 +42,14 @@ pub(crate) struct AgentArgs {
     #[arg(short, long, default_value_t = 6734)]
     pub port: u16,
 
-    #[clap(long, default_value = "/home/rekcod/data")]
+    #[clap(long, default_value = REKCOD_DATA_DEFAULT_PATH)]
     pub data_path: String,
 
     #[clap(long)]
     pub master_host: String,
 
-    #[clap(long, default_value = "/etc/rekcod")]
-    pub etc_path: String,
+    #[clap(long, default_value = REKCOD_CONFIG_DEFAULT_PATH)]
+    pub config_path: String,
 
     #[clap(long)]
     pub token: String,
@@ -58,7 +62,7 @@ impl Into<RekcodAgentConfig> for AgentArgs {
             master_host: self.master_host,
             typ: RekcodType::Agent,
             api_port: self.port,
-            etc_path: self.etc_path,
+            config_path: self.config_path,
         }
     }
 }
@@ -67,7 +71,7 @@ impl Into<RekcodServerConfig> for ServerArgs {
     fn into(self) -> RekcodServerConfig {
         RekcodServerConfig {
             db_url: self.db_url,
-            etc_path: self.etc_path,
+            config_path: self.config_path,
             api_port: self.port,
         }
     }
@@ -80,7 +84,7 @@ impl Into<RekcodAgentConfig> for ServerArgs {
             master_host: format!("127.0.0.1:{}", self.port),
             typ: RekcodType::Master,
             api_port: self.port,
-            etc_path: self.etc_path,
+            config_path: self.config_path,
         }
     }
 }

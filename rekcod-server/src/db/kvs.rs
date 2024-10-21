@@ -6,6 +6,7 @@ pub struct Kvs;
 
 #[derive(Debug, FromRow, Default)]
 pub struct KvsForDb {
+    #[allow(dead_code)]
     pub id: i64,
     pub module: String,
     pub key: String,

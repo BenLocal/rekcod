@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use tabled::Tabled;
 
 #[serde_with::skip_serializing_none]
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ApiJsonResponse<T>
 where
     T: Sized + Serialize + Send + Sync,
@@ -109,7 +109,7 @@ pub struct SystemNetworkInfo {
     pub total_in: u64,
 }
 
-#[derive(Serialize, Deserialize, Default, Tabled)]
+#[derive(Serialize, Deserialize, Default, Tabled, Debug, Clone)]
 #[tabled(rename_all = "UPPERCASE")]
 pub struct NodeItemResponse {
     pub name: String,

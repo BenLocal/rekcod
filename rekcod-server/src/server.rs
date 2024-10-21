@@ -18,7 +18,7 @@ use hyper::{StatusCode, Uri};
 use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
 use rekcod_core::{
     api::{
-        req::{NodeListRequest, RegisterNodeRequest},
+        req::{NodeInfoRequest, NodeListRequest, RegisterNodeRequest},
         resp::{ApiJsonResponse, NodeItemResponse},
     },
     auth::token_auth,
@@ -47,6 +47,7 @@ pub fn routers() -> Router {
         .route("/", get(|| async { "rekcod.server server" }))
         .route("/node/register", post(register_node))
         .route("/node/list", post(list_node))
+        .route("/node/info", post(info_node))
         .route("/node/:node_name/docker/info", post(docker_info))
         .route(
             "/node/:node_name/docker/image/pull/:image_name",
@@ -124,22 +125,25 @@ async fn register_node(
     Ok(ApiJsonResponse::success(resp).into())
 }
 
+async fn info_node(
+    Json(req): Json<NodeInfoRequest>,
+) -> Result<Json<ApiJsonResponse<NodeItemResponse>>, ApiError> {
+    let node = node_manager()
+        .get_node(&req.name)
+        .await?
+        .map(|ns| ns.node.clone().into());
+
+    Ok(ApiJsonResponse::success_optional(node).into())
+}
+
 async fn list_node(
     Json(req): Json<NodeListRequest>,
 ) -> Result<Json<ApiJsonResponse<Vec<NodeItemResponse>>>, ApiError> {
-    let repositry = db::repository().await;
-
-    let subkey = if req.all {
-        None
-    } else {
-        Some(NodeStatus::Online.to_string())
-    };
-    let nodes = repositry
-        .kvs
-        .select("node", None, subkey.as_deref(), None)
+    let nodes = node_manager()
+        .get_all_nodes(req.all)
         .await?
         .into_iter()
-        .map(|kvs| Node::try_from(kvs).unwrap().into())
+        .map(|ns| ns.node.clone().into())
         .collect();
 
     Ok(ApiJsonResponse::success(nodes).into())
@@ -167,7 +171,7 @@ async fn docker_image_pull(
     // first need check image exists
     // if some docker server has the image, will use it
     // if not, will pull from docker hub or registry server
-    let all = node_manager().get_all_nodes().await?;
+    let all = node_manager().get_all_nodes(false).await?;
     let n = node_manager().get_node(&node_name).await?;
     let src = select_has_docker_image_node(all, &image_name, &node_name).await;
     if let Some(n) = n {

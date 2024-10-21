@@ -126,16 +126,16 @@ pub(crate) async fn sys_monitor(cancel: CancellationToken) -> anyhow::Result<()>
                 sys_info.mem_total = s.total_memory();
 
                 // disk
-                // let disks = sysinfo::Disks::new_with_refreshed_list();
-                // sys_info.disks = disks.list().iter().map(|x| {
-                //     SysDisk {
-                //         name:x.name().to_string_lossy().to_string(),
-                //         total: x.total_space(),
-                //         free: x.available_space(),
-                //         mount: x.mount_point().to_string_lossy().to_string(),
-                //         removable: x.is_removable()
-                //     }
-                // }).collect::<Vec<_>>();
+                let disks = sysinfo::Disks::new_with_refreshed_list();
+                sys_info.disks = disks.list().iter().map(|x| {
+                    SysDisk {
+                        name:x.name().to_string_lossy().to_string(),
+                        total: x.total_space(),
+                        free: x.available_space(),
+                        mount: x.mount_point().to_string_lossy().to_string(),
+                        removable: x.is_removable()
+                    }
+                }).collect::<Vec<_>>();
 
                 // network
                 let networks = sysinfo::Networks::new_with_refreshed_list();

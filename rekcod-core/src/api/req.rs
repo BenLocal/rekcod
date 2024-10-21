@@ -37,3 +37,9 @@ pub struct RegisterNodeRequest {
 pub struct NodeListRequest {
     pub all: bool,
 }
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+#[serde(default)]
+pub struct NodeInfoRequest {
+    pub name: String,
+}

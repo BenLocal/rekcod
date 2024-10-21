@@ -3,7 +3,7 @@ use once_cell::sync::OnceCell;
 #[derive(Debug)]
 pub struct RekcodServerConfig {
     pub db_url: String,
-    pub etc_path: String,
+    pub config_path: String,
     pub api_port: u16,
 }
 

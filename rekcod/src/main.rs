@@ -1,12 +1,18 @@
-use std::env;
+use std::{env, path::Path};
 
 use clap::{command, Parser, Subcommand};
 use config::RekcodCliConfig;
+use docker::DockerArgs;
 use node::NodeArgs;
-use rekcod_core::{auth::set_token, obj::RekcodCfg};
+use rekcod_core::{
+    auth::set_token,
+    constants::{REKCOD_CONFIG_DEFAULT_PATH, REKCOD_CONFIG_FILE_NAME},
+    obj::RekcodCfg,
+};
 use tracing::{error, info};
 
 mod config;
+mod docker;
 mod node;
 
 #[derive(Parser)]
@@ -24,6 +30,8 @@ struct RekcodArgs {
 enum RekcodSubCommand {
     #[command(subcommand)]
     Node(NodeArgs),
+
+    Docker(DockerArgs),
 }
 
 #[tokio::main]
@@ -51,11 +59,14 @@ async fn main() {
         RekcodSubCommand::Node(args) => {
             node::run(args).await;
         }
+        RekcodSubCommand::Docker(args) => {
+            docker::run(args).await;
+        }
     }
 }
 
 async fn init_token(rekcod_config: Option<String>) -> anyhow::Result<RekcodCfg> {
-    let path = rekcod_config.unwrap_or(env::var("REKCOD_CONFIG").map(|x| x.to_string())?);
+    let path = get_rekcod_config_path(rekcod_config)?;
     info!("config path: {}", path);
     let cfg_str = tokio::fs::read_to_string(&path).await?;
 
@@ -63,4 +74,24 @@ async fn init_token(rekcod_config: Option<String>) -> anyhow::Result<RekcodCfg> 
     set_token(c.token.clone());
 
     Ok(c)
+}
+
+fn get_rekcod_config_path(rekcod_config: Option<String>) -> anyhow::Result<String> {
+    if let Some(path) = rekcod_config {
+        return Ok(path);
+    }
+
+    let path = env::var("REKCOD_CONFIG").map(|x| x.to_string());
+    if let Ok(path) = path {
+        return Ok(path);
+    }
+
+    // get default config path
+    let path = Path::new(REKCOD_CONFIG_DEFAULT_PATH).join(REKCOD_CONFIG_FILE_NAME);
+
+    if path.exists() {
+        return Ok(path.to_string_lossy().to_string());
+    }
+
+    Err(anyhow::anyhow!("can not get rekcod config path"))
 }

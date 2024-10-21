@@ -33,7 +33,6 @@ pub(crate) async fn run(args: NodeArgs) {
 }
 
 async fn list_node(args: ListNodeArgs) -> anyhow::Result<()> {
-    println!("list node: {:?}", args);
     let config = rekcod_cli_config();
 
     let req = NodeListRequest { all: args.all };
@@ -44,6 +43,8 @@ async fn list_node(args: ListNodeArgs) -> anyhow::Result<()> {
         .await?
         .json::<ApiJsonResponse<Vec<NodeItemResponse>>>()
         .await?;
+
+    println!("{:?}", resp);
 
     if resp.code() != 0 {
         return Err(anyhow::anyhow!("{}", resp.msg()));

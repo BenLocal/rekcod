@@ -2,7 +2,11 @@ use std::{borrow::Cow, path::Path};
 
 use axum::{routing::get, Router};
 use futures::future::BoxFuture;
-use rekcod_core::{auth::set_token, constants::REKCOD_SERVER_PREFIX_PATH, obj::RekcodCfg};
+use rekcod_core::{
+    auth::set_token,
+    constants::{REKCOD_CONFIG_FILE_NAME, REKCOD_SERVER_PREFIX_PATH},
+    obj::RekcodCfg,
+};
 
 use sqlx::{
     error::BoxDynError,
@@ -113,13 +117,13 @@ impl MigrationSource<'static> for Migrations {
 
 async fn init_rekcod_client_config() -> anyhow::Result<()> {
     let config = config::rekcod_server_config();
-    let etc_dir = Path::new(&config.etc_path);
-    if !etc_dir.exists() {
-        tokio::fs::create_dir_all(etc_dir).await?;
+    let config_dir = Path::new(&config.config_path);
+    if !config_dir.exists() {
+        tokio::fs::create_dir_all(config_dir).await?;
     }
 
     // check config file exists
-    let cfg_path = etc_dir.join("rekcod.json");
+    let cfg_path = config_dir.join(REKCOD_CONFIG_FILE_NAME);
     if cfg_path.exists() {
         // read token from file
         let cfg_str = tokio::fs::read_to_string(&cfg_path).await?;
