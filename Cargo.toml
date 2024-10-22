@@ -1,5 +1,5 @@
 [workspace]
-members = ["rekcod-core", "rekcod-server", "rekcod-agent", "rekcodd", "rekcod"]
+members = ["rekcod-core", "rekcod-server", "rekcod-agent", "rekcodd", "rekcod", "rekcod-dashboard"]
 resolver = "2"
 
 
