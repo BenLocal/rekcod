@@ -36,6 +36,10 @@ use crate::{
 
 type Client = hyper_util::client::legacy::Client<HttpConnector, Body>;
 
+pub fn api_routers() -> Router {
+    Router::new().route("/node/list", post(list_node))
+}
+
 pub fn routers() -> Router {
     let client: Client =
         hyper_util::client::legacy::Client::<(), ()>::builder(TokioExecutor::new())

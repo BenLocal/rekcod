@@ -4,7 +4,7 @@ use axum::{routing::get, Router};
 use futures::future::BoxFuture;
 use rekcod_core::{
     auth::set_token,
-    constants::{REKCOD_CONFIG_FILE_NAME, REKCOD_SERVER_PREFIX_PATH},
+    constants::{REKCOD_API_PREFIX_PATH, REKCOD_CONFIG_FILE_NAME, REKCOD_SERVER_PREFIX_PATH},
     obj::RekcodCfg,
 };
 
@@ -26,6 +26,7 @@ pub fn routers() -> Router {
     Router::new()
         .route("/", get(|| async { "server" }))
         .nest(REKCOD_SERVER_PREFIX_PATH, server::routers())
+        .nest(REKCOD_API_PREFIX_PATH, server::api_routers())
 }
 
 pub async fn init(_cancel: CancellationToken) -> anyhow::Result<()> {

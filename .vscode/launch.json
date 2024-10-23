@@ -77,7 +77,11 @@
                 }
             },
             "args": [
-                "server"
+                "server",
+                "--data-path",
+                "${workspaceFolder}/target/data",
+                "--config-path",
+                "${workspaceFolder}/target/config"
             ],
             "cwd": "${workspaceFolder}"
         },
