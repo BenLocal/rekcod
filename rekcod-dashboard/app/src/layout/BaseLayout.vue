@@ -41,7 +41,7 @@ const menus = [
   },
   {
     path: '/node',
-    icon: 'setting',
+    icon: 'Grid',
     title: '节点',
   },
 ]

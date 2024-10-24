@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     body::Body,
@@ -8,19 +8,10 @@ use axum::{
     routing::{any, get, post},
     Json, Router,
 };
-use bollard::{
-    image::{CreateImageOptions, ImportImageOptions, ListImagesOptions},
-    secret::SystemInfo,
-    Docker,
-};
-use futures::{Stream, StreamExt};
 use hyper::{StatusCode, Uri};
 use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
 use rekcod_core::{
-    api::{
-        req::{NodeInfoRequest, NodeListRequest, RegisterNodeRequest},
-        resp::{ApiJsonResponse, NodeItemResponse},
-    },
+    api::{req::RegisterNodeRequest, resp::ApiJsonResponse},
     auth::token_auth,
     constants::{DOCKER_PROXY_PATH, REKCOD_AGENT_PREFIX_PATH},
     http::ApiError,
@@ -30,14 +21,54 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use crate::{
-    db,
-    node::{node_manager, Node, NodeState},
+    api::app::{
+        docker_container_delete_by_node, docker_container_info_by_node,
+        docker_container_list_by_node, docker_container_logs_by_node,
+        docker_container_restart_by_node, docker_container_start_by_node,
+        docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
+        docker_info_by_node, info_node, list_node,
+    },
+    config, db,
+    node::{node_manager, Node},
 };
 
 type Client = hyper_util::client::legacy::Client<HttpConnector, Body>;
 
 pub fn api_routers() -> Router {
-    Router::new().route("/node/list", post(list_node))
+    Router::new()
+        .route("/node/list", post(list_node))
+        .route("/node/info", post(info_node))
+        .route("/node/docker/info", post(docker_info_by_node))
+        .route(
+            "/node/docker/container/list",
+            post(docker_container_list_by_node),
+        )
+        .route(
+            "/node/docker/container/start/:id",
+            post(docker_container_start_by_node),
+        )
+        .route(
+            "/node/docker/container/stop/:id",
+            post(docker_container_stop_by_node),
+        )
+        .route(
+            "/node/docker/container/restart/:id",
+            post(docker_container_restart_by_node),
+        )
+        .route(
+            "/node/docker/container/logs/:id",
+            post(docker_container_logs_by_node),
+        )
+        .route(
+            "/node/docker/container/delete/:id",
+            post(docker_container_delete_by_node),
+        )
+        .route(
+            "/node/docker/container/inspect/:id",
+            post(docker_container_info_by_node),
+        )
+        .route("/node/docker/image/list", post(docker_image_list_by_node))
+        .route("/node/docker/image/pull_auto", post(docker_image_pull_auto))
 }
 
 pub fn routers() -> Router {
@@ -48,18 +79,11 @@ pub fn routers() -> Router {
     let ctx = Arc::new(client);
 
     Router::new()
-        .route("/", get(|| async { "rekcod.server server" }))
         .route("/node/register", post(register_node))
-        .route("/node/list", post(list_node))
-        .route("/node/info", post(info_node))
-        .route("/node/:node_name/docker/info", post(docker_info))
-        .route(
-            "/node/:node_name/docker/image/pull/:image_name",
-            post(docker_image_pull),
-        )
         .route("/node/:node_name/:typ/*sub", any(node_proxy))
         .with_state(Arc::clone(&ctx))
         .layer(middleware::from_fn(token_auth))
+        .merge(api_routers())
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -127,157 +151,6 @@ async fn register_node(
 
     let resp = RegisterNodeResponse {};
     Ok(ApiJsonResponse::success(resp).into())
-}
-
-async fn info_node(
-    Json(req): Json<NodeInfoRequest>,
-) -> Result<Json<ApiJsonResponse<NodeItemResponse>>, ApiError> {
-    let node = node_manager()
-        .get_node(&req.name)
-        .await?
-        .map(|ns| ns.node.clone().into());
-
-    Ok(ApiJsonResponse::success_optional(node).into())
-}
-
-async fn list_node(
-    Json(req): Json<NodeListRequest>,
-) -> Result<Json<ApiJsonResponse<Vec<NodeItemResponse>>>, ApiError> {
-    let nodes = node_manager()
-        .get_all_nodes(req.all)
-        .await?
-        .into_iter()
-        .map(|ns| ns.node.clone().into())
-        .collect();
-
-    Ok(ApiJsonResponse::success(nodes).into())
-}
-
-async fn docker_info(
-    Path(node_name): Path<String>,
-) -> Result<Json<ApiJsonResponse<SystemInfo>>, ApiError> {
-    info!("docker info: {}", node_name);
-    let n = node_manager().get_node(&node_name).await?;
-
-    if let Some(n) = n {
-        let docker_client = &n.docker;
-        return Ok(ApiJsonResponse::success(docker_client.info().await?).into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
-}
-
-async fn docker_image_pull(
-    Path((node_name, image_name)): Path<(String, String)>,
-) -> Result<Response, ApiError> {
-    info!("docker image pull: {}", node_name);
-
-    // first need check image exists
-    // if some docker server has the image, will use it
-    // if not, will pull from docker hub or registry server
-    let all = node_manager().get_all_nodes(false).await?;
-    let n = node_manager().get_node(&node_name).await?;
-    let src = select_has_docker_image_node(all, &image_name, &node_name).await;
-    if let Some(n) = n {
-        if let Some(src) = src {
-            let result =
-                docker_pull_image_from_other_server(&n.docker, &image_name, &src.docker).await?;
-            let body = axum::body::Body::from_stream(result);
-            return Ok(Response::builder()
-                .status(StatusCode::OK)
-                .header(axum::http::header::CONTENT_TYPE, "application/octet-stream")
-                .body(body)?);
-        }
-
-        let image_name = image_name.clone();
-        let docker = Arc::clone(&n).docker.clone();
-        let result = docker_pull_image_from_hub(docker, image_name).await?;
-        let body = axum::body::Body::from_stream(result);
-        return Ok(Response::builder()
-            .status(StatusCode::OK)
-            .header(axum::http::header::CONTENT_TYPE, "application/octet-stream")
-            .body(body)?);
-    }
-
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .header(axum::http::header::CONTENT_TYPE, "application/octet-stream")
-        .body(axum::body::Body::empty())?)
-}
-
-async fn select_has_docker_image_node(
-    nodes: Vec<Arc<NodeState>>,
-    image_name: &str,
-    expect_name: &str,
-) -> Option<Arc<NodeState>> {
-    for x in nodes.iter().filter(|x| x.node.name != expect_name) {
-        let list_options = ListImagesOptions {
-            all: true,
-            filters: HashMap::from([("reference", vec![image_name])]),
-            ..Default::default()
-        };
-        let images = x.docker.list_images(Some(list_options)).await;
-
-        if images.is_ok() && images.unwrap().len() > 0 {
-            info!("select node {} has image {}", x.node.name, image_name);
-            return Some(x.clone());
-        }
-    }
-
-    None
-}
-
-async fn docker_pull_image_from_hub<'a>(
-    docker: Docker,
-    image_name: String,
-) -> anyhow::Result<impl Stream<Item = Result<Vec<u8>, std::io::Error>> + 'a> {
-    info!("docker image pull");
-    let options = Some(CreateImageOptions {
-        from_image: image_name,
-        ..Default::default()
-    });
-
-    let res = docker
-        .create_image(options, None, None)
-        .map(|res| match res {
-            Ok(info) => Ok(info.progress.unwrap_or("".to_string()).into_bytes()),
-            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
-        });
-
-    Ok(res)
-}
-
-async fn docker_pull_image_from_other_server(
-    docker: &Docker,
-    image_name: &str,
-    src_docker: &Docker,
-) -> anyhow::Result<impl Stream<Item = Result<Vec<u8>, std::io::Error>>> {
-    // let export_docker_client = rekcod_connect(
-    //     Some(format!("http://{}:{}", "39.100.74.178", 6734)),
-    //     rekcod_core::constants::DOCKER_PROXY_PATH,
-    //     4,
-    // )?;
-    let stream = src_docker
-        .export_image(&image_name)
-        .filter_map(|item| async {
-            match item {
-                Ok(bytes) => Some(bytes),
-                Err(_) => None,
-            }
-        });
-
-    // import image
-    let options = ImportImageOptions {
-        ..Default::default()
-    };
-    let result = docker
-        .import_image_stream(options, stream, None)
-        .map(|res| match res {
-            Ok(info) => Ok(format!("{}\n", info.progress.unwrap_or("".to_string())).into_bytes()),
-            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
-        });
-
-    Ok(result)
 }
 
 async fn node_proxy(

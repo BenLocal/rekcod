@@ -34,6 +34,12 @@ pub(crate) struct ServerArgs {
 
     #[clap(long, default_value = REKCOD_CONFIG_DEFAULT_PATH)]
     pub config_path: String,
+
+    #[clap(long, default_value_t = true)]
+    pub dashboard: bool,
+
+    #[clap(long, default_value = "/rekcod")]
+    pub dashboard_base_url: Option<String>,
 }
 
 #[derive(clap::Args, Clone)]
@@ -73,6 +79,8 @@ impl Into<RekcodServerConfig> for ServerArgs {
             db_url: self.db_url,
             config_path: self.config_path,
             api_port: self.port,
+            dashboard: self.dashboard,
+            dashboard_base_url: self.dashboard_base_url,
         }
     }
 }

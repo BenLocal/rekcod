@@ -1,5 +1,12 @@
 [workspace]
-members = ["rekcod-core", "rekcod-server", "rekcod-agent", "rekcodd", "rekcod", "rekcod-dashboard"]
+members = [
+    "rekcod-core",
+    "rekcod-server",
+    "rekcod-agent",
+    "rekcodd",
+    "rekcod",
+    "rekcod-dashboard",
+]
 resolver = "2"
 
 
@@ -38,3 +45,4 @@ sysinfo = "0.32"
 uuid = "1"
 tabled = "0.16"
 json_to_table = "0.8"
+axum-embed = "0.1"

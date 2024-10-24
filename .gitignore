@@ -22,5 +22,10 @@ Cargo.lock
 
 db.sqlite
 rekcod-server/image.tar
-.vscode/launch.json
-/.vscode
+
+# npm 
+**/node_modules
+
+# vscode
+.vscode/*
+!.vscode/extensions.json

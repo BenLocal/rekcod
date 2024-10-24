@@ -5,6 +5,8 @@ pub struct RekcodServerConfig {
     pub db_url: String,
     pub config_path: String,
     pub api_port: u16,
+    pub dashboard: bool,
+    pub dashboard_base_url: Option<String>,
 }
 
 static REKCOD_CONFIG: OnceCell<RekcodServerConfig> = OnceCell::new();

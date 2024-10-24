@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 rekcod-core = { path = "../rekcod-core" }
+rekcod-dashboard = { path = "../rekcod-dashboard" }
 axum = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tokio-util = { workspace = true, features = ["full"] }

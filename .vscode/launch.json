@@ -81,7 +81,7 @@
                 "--data-path",
                 "${workspaceFolder}/target/data",
                 "--config-path",
-                "${workspaceFolder}/target/config"
+                "${workspaceFolder}/target/config",
             ],
             "cwd": "${workspaceFolder}"
         },

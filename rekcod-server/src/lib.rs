@@ -17,16 +17,25 @@ use tokio_util::sync::CancellationToken;
 use tracing::info;
 use uuid::Uuid;
 
+mod api;
 pub mod config;
 mod db;
 mod node;
 mod server;
 
 pub fn routers() -> Router {
-    Router::new()
-        .route("/", get(|| async { "server" }))
+    let mut router = Router::new()
         .nest(REKCOD_SERVER_PREFIX_PATH, server::routers())
-        .nest(REKCOD_API_PREFIX_PATH, server::api_routers())
+        .nest(REKCOD_API_PREFIX_PATH, server::api_routers());
+
+    let config = config::rekcod_server_config();
+    if config.dashboard {
+        router = router.merge(rekcod_dashboard::app_router(
+            config.dashboard_base_url.as_deref(),
+        ));
+    }
+
+    router
 }
 
 pub async fn init(_cancel: CancellationToken) -> anyhow::Result<()> {
