@@ -1,6 +1,6 @@
 use std::{borrow::Cow, path::Path};
 
-use axum::{routing::get, Router};
+use axum::Router;
 use futures::future::BoxFuture;
 use rekcod_core::{
     auth::set_token,

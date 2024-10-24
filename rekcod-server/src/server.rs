@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, Request, State},
     middleware,
     response::{IntoResponse as _, Response},
-    routing::{any, get, post},
+    routing::{any, post},
     Json, Router,
 };
 use hyper::{StatusCode, Uri};
@@ -28,7 +28,7 @@ use crate::{
         docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
         docker_info_by_node, info_node, list_node,
     },
-    config, db,
+    db,
     node::{node_manager, Node},
 };
 

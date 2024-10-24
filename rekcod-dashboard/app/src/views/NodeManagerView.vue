@@ -28,14 +28,14 @@ const router = useRouter()
 
 const tableData = ref([])
 
-const goto_docker_view = (node_name) => {
+const goto_docker_view = node_name => {
   router.push({ path: '/node/docker', query: { node_name: node_name } })
 }
 
 onMounted(async () => {
   const { code, data, msg } = await (await api.getNodeList({ all: true })).data
   if (code !== 0) {
-    ElMessage.error(msg ? msg : '获取节点列表失败')
+    ElMessage.error(msg || '获取节点列表失败')
     return
   }
   const res = data.map(item => {
@@ -49,6 +49,4 @@ onMounted(async () => {
 
   tableData.value = res
 })
-
 </script>
-<style scoped></style>
