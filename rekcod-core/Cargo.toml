@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 bollard = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
 hyper = { workspace = true, features = ["full"] }
 hyper-util = { workspace = true, features = ["full"] }
 anyhow = { workspace = true }

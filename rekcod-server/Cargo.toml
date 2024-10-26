@@ -11,7 +11,6 @@ tokio = { workspace = true, features = ["full"] }
 tokio-util = { workspace = true, features = ["full"] }
 hyper = { workspace = true, features = ["full"] }
 hyper-util = { workspace = true, features = ["full"] }
-hex = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -29,6 +28,3 @@ bollard = { workspace = true }
 uuid = { workspace = true, features = ["v4", "fast-rng", "macro-diagnostics"] }
 socketioxide = { workspace = true }
 url = { workspace = true }
-tower-http = { workspace = true, features = ["cors", "fs", "trace"] }
-tower = { workspace = true }
-base64 = { workspace = true }

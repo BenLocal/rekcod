@@ -8,14 +8,11 @@ edition = "2021"
 [dependencies]
 rekcod-core = { path = "../rekcod-core" }
 clap = { workspace = true, features = ["derive"] }
-reqwest = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 once_cell = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-serde = { workspace = true }
 serde_json = { workspace = true }
 tabled = { workspace = true }
 bollard = { workspace = true }
-json_to_table = { workspace = true }
