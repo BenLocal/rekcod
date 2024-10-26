@@ -16,6 +16,9 @@ pub(crate) async fn start(cancel: CancellationToken) -> anyhow::Result<()> {
     if config.server_type == config::RekcodServerType::Server {
         app = app.merge(rekcod_server::routers());
 
+        // this is maybe a problem in socketioxide
+        // with axum router nest it will not work, maybe set a req path in axum router
+        // see https://github.com/Totodore/socketioxide/issues/36
         app = app.layer(
             tower::ServiceBuilder::new()
                 .layer(CorsLayer::permissive())

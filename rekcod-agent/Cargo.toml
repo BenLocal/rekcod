@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 rekcod-core = { path = "../rekcod-core" }
-axum = { workspace = true }
+axum = { workspace = true, features = ["ws"] }
 tokio = { workspace = true, features = ["full"] }
 tokio-util = { workspace = true, features = ["full"] }
 hyper = { workspace = true, features = ["full"] }
@@ -13,6 +13,7 @@ hyper-util = { workspace = true, features = ["full"] }
 hex = { workspace = true }
 anyhow = { workspace = true }
 futures = { workspace = true }
+futures-util = { workspace = true }
 serde = { workspace = true }
 mime_guess = { workspace = true }
 http-range = { workspace = true }
@@ -21,6 +22,8 @@ reqwest = { workspace = true, features = ["json"] }
 tracing = { workspace = true }
 local-ip-address = { workspace = true }
 sysinfo = { workspace = true }
+pin-project-lite = { workspace = true }
+http-body-util = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 hyperlocal = { workspace = true }

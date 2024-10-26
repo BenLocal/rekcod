@@ -21,15 +21,12 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use crate::{
-    api::{
-        app::{
-            docker_container_delete_by_node, docker_container_info_by_node,
-            docker_container_list_by_node, docker_container_logs_by_node,
-            docker_container_restart_by_node, docker_container_start_by_node,
-            docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
-            docker_info_by_node, info_node, list_node,
-        },
-        socketio::socketio_routers,
+    api::app::{
+        docker_container_delete_by_node, docker_container_info_by_node,
+        docker_container_list_by_node, docker_container_logs_by_node,
+        docker_container_restart_by_node, docker_container_start_by_node,
+        docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
+        docker_info_by_node, info_node, list_node,
     },
     db,
     node::{node_manager, Node},
