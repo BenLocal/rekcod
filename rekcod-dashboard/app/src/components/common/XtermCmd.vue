@@ -12,6 +12,10 @@ import { WebLinksAddon } from 'xterm-addon-web-links'
 import { SearchAddon } from 'xterm-addon-search'
 import 'xterm/css/xterm.css'
 
+// const props = defineProps({
+//   remote: String,
+// })
+
 const terminal = ref(null)
 const termOptions = ref({
   rows: 30,

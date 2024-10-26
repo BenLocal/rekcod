@@ -164,11 +164,13 @@ const on_container_logs_chunk = chunk => {
     const linesToRemove = currentLines + 200 - logMaxlines
     doc.replaceRange('', { line: 0, ch: 0 }, { line: linesToRemove, ch: 0 })
   }
+
+  //const ansiUpchunk = ansiUp.ansi_to_html(chunk)
   doc.replaceRange(chunk, doc.posFromIndex(doc.getValue().length))
 
   const scroll = codemirror.getScrollInfo()
   if (!scroll) return
-  codemirror.scrollTo(null, scroll.height)
+  codemirror.scrollTo(0, scroll.height)
 }
 
 const closeLogsDialog = () => {
@@ -204,7 +206,7 @@ const logs_container = async () => {
       return
     }
   } catch {
-    logsState.value.cancel.abort()
+    logsState.value.cancel?.abort()
     logsState.value.cancel = null
   }
 }

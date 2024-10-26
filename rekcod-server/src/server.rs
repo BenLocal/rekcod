@@ -21,12 +21,15 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use crate::{
-    api::app::{
-        docker_container_delete_by_node, docker_container_info_by_node,
-        docker_container_list_by_node, docker_container_logs_by_node,
-        docker_container_restart_by_node, docker_container_start_by_node,
-        docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
-        docker_info_by_node, info_node, list_node,
+    api::{
+        app::{
+            docker_container_delete_by_node, docker_container_info_by_node,
+            docker_container_list_by_node, docker_container_logs_by_node,
+            docker_container_restart_by_node, docker_container_start_by_node,
+            docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
+            docker_info_by_node, info_node, list_node,
+        },
+        socketio::socketio_routers,
     },
     db,
     node::{node_manager, Node},
@@ -279,7 +282,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_list_iamge() -> anyhow::Result<()> {
+    async fn test_list_image() -> anyhow::Result<()> {
         let docker_client = rekcod_connect(
             Some(format!("http://{}:{}", "39.100.74.178", 6734)),
             rekcod_core::constants::DOCKER_PROXY_PATH,

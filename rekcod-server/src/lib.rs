@@ -17,7 +17,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::info;
 use uuid::Uuid;
 
-mod api;
+pub mod api;
 pub mod config;
 mod db;
 mod node;

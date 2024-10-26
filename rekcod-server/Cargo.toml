@@ -27,3 +27,7 @@ rust-embed = { workspace = true }
 futures = { workspace = true }
 bollard = { workspace = true }
 uuid = { workspace = true, features = ["v4", "fast-rng", "macro-diagnostics"] }
+socketioxide = { workspace = true }
+url = { workspace = true }
+tower-http = { workspace = true, features = ["cors", "fs", "trace"] }
+tower = { workspace = true }
