@@ -11,7 +11,12 @@ use bollard::{
         InspectContainerOptions, ListContainersOptions, LogsOptions, RemoveContainerOptions,
     },
     image::{CreateImageOptions, ImportImageOptions, ListImagesOptions},
-    secret::{ContainerInspectResponse, ContainerSummary, ImageSummary, SystemInfo},
+    network::ListNetworksOptions,
+    secret::{
+        ContainerInspectResponse, ContainerSummary, ImageSummary, Network, SystemInfo,
+        VolumeListResponse,
+    },
+    volume::ListVolumesOptions,
     Docker,
 };
 use futures::{Stream, StreamExt as _};
@@ -219,6 +224,42 @@ pub async fn docker_container_list_by_node(
 
         let docker_client = &n.docker;
         return Ok(ApiJsonResponse::success(docker_client.list_containers(options).await?).into());
+    }
+
+    Ok(ApiJsonResponse::empty_success().into())
+}
+
+pub async fn docker_network_list_by_node(
+    Query(query): Query<NodeDockerQueryRequest>,
+) -> Result<Json<ApiJsonResponse<Vec<Network>>>, ApiError> {
+    info!("docker network list: {:?}", query);
+    let n = node_manager().get_node(&query.node_name).await?;
+
+    if let Some(n) = n {
+        let options = Some(ListNetworksOptions::<&str> {
+            ..Default::default()
+        });
+
+        let docker_client = &n.docker;
+        return Ok(ApiJsonResponse::success(docker_client.list_networks(options).await?).into());
+    }
+
+    Ok(ApiJsonResponse::empty_success().into())
+}
+
+pub async fn docker_volume_list_by_node(
+    Query(query): Query<NodeDockerQueryRequest>,
+) -> Result<Json<ApiJsonResponse<VolumeListResponse>>, ApiError> {
+    info!("docker network list: {:?}", query);
+    let n = node_manager().get_node(&query.node_name).await?;
+
+    if let Some(n) = n {
+        let options = Some(ListVolumesOptions::<&str> {
+            ..Default::default()
+        });
+
+        let docker_client = &n.docker;
+        return Ok(ApiJsonResponse::success(docker_client.list_volumes(options).await?).into());
     }
 
     Ok(ApiJsonResponse::empty_success().into())

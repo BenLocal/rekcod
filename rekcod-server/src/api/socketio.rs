@@ -106,8 +106,6 @@ async fn on_connect(socket: SocketRef) {
                 }
             }
         }
-
-        println!("exit");
     });
 }
 

@@ -1,5 +1,6 @@
 use std::{borrow::Cow, path::Path};
 
+use api::socketio::socketio_routers;
 use axum::Router;
 use futures::future::BoxFuture;
 use rekcod_core::{
@@ -14,10 +15,11 @@ use sqlx::{
     SqlitePool,
 };
 use tokio_util::sync::CancellationToken;
+use tower_http::cors::CorsLayer;
 use tracing::info;
 use uuid::Uuid;
 
-pub mod api;
+mod api;
 pub mod config;
 mod db;
 mod node;
@@ -34,6 +36,15 @@ pub fn routers() -> Router {
             config.dashboard_base_url.as_deref(),
         ));
     }
+
+    // this is maybe a problem in socketioxide
+    // with axum router nest it will not work, maybe set a req path in axum router
+    // see https://github.com/Totodore/socketioxide/issues/36
+    router = router.layer(
+        tower::ServiceBuilder::new()
+            .layer(CorsLayer::permissive())
+            .layer(socketio_routers()),
+    );
 
     router
 }

@@ -26,7 +26,8 @@ use crate::{
         docker_container_list_by_node, docker_container_logs_by_node,
         docker_container_restart_by_node, docker_container_start_by_node,
         docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
-        docker_info_by_node, info_node, list_node,
+        docker_info_by_node, docker_network_list_by_node, docker_volume_list_by_node, info_node,
+        list_node,
     },
     db,
     node::{node_manager, Node},
@@ -69,6 +70,11 @@ pub fn api_routers() -> Router {
         )
         .route("/node/docker/image/list", post(docker_image_list_by_node))
         .route("/node/docker/image/pull_auto", post(docker_image_pull_auto))
+        .route(
+            "/node/docker/network/list",
+            post(docker_network_list_by_node),
+        )
+        .route("/node/docker/volume/list", post(docker_volume_list_by_node))
 }
 
 pub fn routers() -> Router {
