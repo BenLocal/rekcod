@@ -2,10 +2,10 @@ use std::{collections::HashMap, sync::Arc};
 
 use bollard::{
     container::LogOutput,
-    exec::{CreateExecOptions, StartExecOptions, StartExecResults},
+    exec::{CreateExecOptions, ResizeExecOptions, StartExecOptions, StartExecResults},
 };
 use futures::StreamExt;
-use rekcod_core::utils;
+use serde::{Deserialize, Serialize};
 use socketioxide::{
     extract::{Data, SocketRef},
     layer::SocketIoLayer,
@@ -16,7 +16,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::info;
 use url::Url;
 
-use crate::node::node_manager;
+use crate::node::{node_manager, NodeState};
 
 pub fn socketio_routers() -> SocketIoLayer {
     let (layer, io) = SocketIo::new_layer();
@@ -26,19 +26,35 @@ pub fn socketio_routers() -> SocketIoLayer {
 
 async fn on_connect(socket: SocketRef) {
     info!(ns = socket.ns(), ?socket.id, "Socket.IO connected");
-    let res = match connect_to_docker(&socket).await {
-        Ok(Some(data)) => {
-            socket.emit("connected", "ok").ok();
-            data
+    let (node_name, id) = match get_query_params(&socket).await {
+        Ok((node_name, id)) => (node_name, id),
+        Err(err) => {
+            socket.emit("err", &err.to_string()).ok();
+            return;
         }
+    };
+
+    let node = match node_manager().get_node(&node_name).await {
+        Ok(Some(n)) => n,
         Ok(None) => {
-            // do nothing
-            socket.emit("connected", "can not connect to docker").ok();
+            socket.emit("err", "node not found").ok();
             return;
         }
         Err(err) => {
+            socket.emit("err", &err.to_string()).ok();
+            return;
+        }
+    };
+
+    let node_clone = Arc::clone(&node);
+    let (exec_id, res) = match connect_to_docker(node_clone, &id).await {
+        Ok(data) => {
+            socket.emit("connected", "ok").ok();
+            data
+        }
+        Err(err) => {
             // do nothing
-            socket.emit("connected", &err.to_string()).ok();
+            socket.emit("err", &err.to_string()).ok();
             return;
         }
     };
@@ -47,7 +63,7 @@ async fn on_connect(socket: SocketRef) {
         StartExecResults::Attached { output, input } => (input, output),
         _ => {
             // do nothing
-            socket.emit("connected", "can not connect to docker").ok();
+            socket.emit("err", "can not connect to docker").ok();
             return;
         }
     };
@@ -63,12 +79,23 @@ async fn on_connect(socket: SocketRef) {
             info!(?data, "Received event:");
             {
                 let mut input = input.lock().await;
-                if let Err(err) = input.write(utils::decode_base64(&data).as_ref()).await {
+                if let Err(err) = input.write(data.as_bytes()).await {
                     info!(?err, "Failed to write data");
                 }
                 if let Err(err) = input.flush().await {
                     info!(?err, "Failed to flush data");
                 }
+            }
+        },
+    );
+
+    let node_clone = Arc::clone(&node);
+    socket.on(
+        "resize",
+        |_socket: SocketRef, Data::<ResizeInfo>(data)| async move {
+            info!(?data, "Received resize event:");
+            {
+                let _ = resize_docker_cmd(node_clone, &data, &exec_id).await;
             }
         },
     );
@@ -109,7 +136,28 @@ async fn on_connect(socket: SocketRef) {
     });
 }
 
-async fn connect_to_docker(socket: &SocketRef) -> anyhow::Result<Option<StartExecResults>> {
+async fn connect_to_docker(
+    node: Arc<NodeState>,
+    container_id: &str,
+) -> anyhow::Result<(String, StartExecResults)> {
+    // get node
+    let config = CreateExecOptions {
+        cmd: Some(vec!["sh"]),
+        attach_stdout: Some(true),
+        attach_stderr: Some(true),
+        attach_stdin: Some(true),
+        tty: Some(true),
+        ..Default::default()
+    };
+    let s = &node.docker.create_exec(&container_id, config).await?;
+    let res = node
+        .docker
+        .start_exec(&s.id, None::<StartExecOptions>)
+        .await?;
+    return Ok((s.id.clone(), res));
+}
+
+async fn get_query_params(socket: &SocketRef) -> anyhow::Result<(String, String)> {
     let base_url = "http://example.com";
     let req_parts = socket.req_parts();
     let full_url = format!("{}{}", base_url, &req_parts.uri.to_string());
@@ -124,26 +172,29 @@ async fn connect_to_docker(socket: &SocketRef) -> anyhow::Result<Option<StartExe
         return Err(anyhow::anyhow!("params error").into());
     }
 
-    // get node
-    let n = node_manager().get_node(&node_name.unwrap()).await?;
-    if let Some(n) = n {
-        let config = CreateExecOptions {
-            cmd: Some(vec!["sh"]),
-            attach_stdout: Some(true),
-            attach_stderr: Some(true),
-            attach_stdin: Some(true),
-            ..Default::default()
-        };
-        let s = &n.docker.create_exec(&id.unwrap(), config).await?;
-        // let options = StartExecOptions {
-        //     tty: true,
-        //     ..Default::default()
-        // };
-        let res = n.docker.start_exec(&s.id, None::<StartExecOptions>).await?;
-        return Ok(Some(res));
-    }
+    Ok((node_name.unwrap().to_string(), id.unwrap().to_string()))
+}
 
-    Ok(None)
+async fn resize_docker_cmd(
+    node: Arc<NodeState>,
+    info: &ResizeInfo,
+    message_id: &str,
+) -> anyhow::Result<()> {
+    let options = ResizeExecOptions {
+        height: info.height as u16,
+        width: info.width as u16,
+        ..Default::default()
+    };
+
+    let _ = &node.docker.resize_exec(message_id, options).await?;
+
+    Ok(())
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ResizeInfo {
+    pub height: u32,
+    pub width: u32,
 }
 
 #[cfg(test)]

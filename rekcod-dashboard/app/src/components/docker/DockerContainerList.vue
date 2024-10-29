@@ -15,7 +15,7 @@
       <template #default="scope">
         <el-link
           :icon="CommandLineIcon"
-          @click="attch_container(scope.row.id)"
+          @click="exec_container(scope.row.id)"
         ></el-link>
         <el-link
           :icon="MoreFilled"
@@ -31,13 +31,14 @@
     with-header="false"
     size="70%"
   >
-    <XtermCmd />
+    <XtermCmd :url="terminalUrl" v-if="openTerminal"/>
   </el-drawer>
   <el-drawer
     v-model="openControl"
     title="控制面板"
     :with-header="false"
     size="50%"
+    :open-auto-focus="true"
   >
     <el-row>
       <el-button type="danger" @click="stop_container">停止</el-button>
@@ -113,13 +114,15 @@ const containerInfoOptions = ref({
   scrollbarStyle: 'native',
 })
 const openTerminal = ref(false)
+const terminalUrl = ref('')
 
 const refresh = async () => {
   await get_docker_container_list(props.node_name)
 }
 
-const attch_container = () => {
+const exec_container = id => {
   openTerminal.value = true
+  terminalUrl.value = `/api/node/docker/container/exec?node_name=${props.node_name}&id=${id}`
 }
 
 const inspect_container = async () => {
