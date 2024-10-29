@@ -44,9 +44,14 @@ pub struct NodeInfoRequest {
     pub name: String,
 }
 
-
 #[derive(Serialize, Deserialize, Default, Debug)]
 #[serde(default)]
 pub struct NodeDockerQueryRequest {
     pub node_name: String,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+#[serde(default)]
+pub struct NodeSysInfoRequest {
+    pub name: String,
 }

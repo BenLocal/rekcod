@@ -23,9 +23,10 @@ use futures::{Stream, StreamExt as _};
 use hyper::{header, StatusCode};
 use rekcod_core::{
     api::{
-        req::{NodeDockerQueryRequest, NodeInfoRequest, NodeListRequest},
-        resp::{ApiJsonResponse, NodeItemResponse},
+        req::{NodeDockerQueryRequest, NodeInfoRequest, NodeListRequest, NodeSysInfoRequest},
+        resp::{ApiJsonResponse, NodeItemResponse, SystemInfoResponse},
     },
+    client::get_client,
     http::ApiError,
 };
 use tracing::info;
@@ -54,6 +55,26 @@ pub async fn info_node(
         .map(|ns| ns.node.clone().into());
 
     Ok(ApiJsonResponse::success_optional(node).into())
+}
+
+pub async fn node_sys_info(
+    Json(req): Json<NodeSysInfoRequest>,
+) -> Result<Json<ApiJsonResponse<SystemInfoResponse>>, ApiError> {
+    let n = node_manager().get_node(&req.name).await?;
+
+    if let Some(n) = n {
+        let res = get_client()?
+            .get(format!("{}/sys", n.get_node_agent()))
+            .send()
+            .await?;
+
+        return Ok(res
+            .json::<ApiJsonResponse<SystemInfoResponse>>()
+            .await?
+            .into());
+    }
+
+    Ok(ApiJsonResponse::empty_success().into())
 }
 
 pub async fn docker_image_list_by_node(

@@ -30,6 +30,10 @@ pub(crate) struct SysInfo {
     pub cpu_count: u32,
     pub mem_available: u64,
     pub mem_total: u64,
+    // mem usage x%
+    pub mem_usage: f32,
+    pub mem_free: u64,
+    pub mem_used: u64,
     pub disks: Vec<SysDisk>,
     pub networks: Vec<SysNetwork>,
 }
@@ -69,6 +73,9 @@ impl Into<SystemInfoResponse> for SysInfo {
             cpu_usage: self.cpu_usage,
             mem_available: self.mem_available,
             mem_total: self.mem_total,
+            mem_usage: self.mem_usage,
+            mem_free: self.mem_free,
+            mem_used: self.mem_used,
             cpu_count: self.cpu_count,
             system_name: global.system_name.clone(),
             kernel_version: global.kernel_version.clone(),
@@ -124,6 +131,9 @@ pub(crate) async fn sys_monitor(cancel: CancellationToken) -> anyhow::Result<()>
                 // mem
                 sys_info.mem_available = s.available_memory();
                 sys_info.mem_total = s.total_memory();
+                sys_info.mem_usage = s.used_memory() as f32 / s.total_memory() as f32 * 100.0;
+                sys_info.mem_free = s.free_memory();
+                sys_info.mem_used = s.used_memory();
 
                 // disk
                 if !cfg!(target_os = "macos") {

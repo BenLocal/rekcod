@@ -4,6 +4,7 @@ use once_cell::sync::Lazy;
 use rekcod_core::{
     api::{req::RegisterNodeRequest, resp::NodeItemResponse},
     auth::get_token,
+    constants::REKCOD_AGENT_PREFIX_PATH,
     docker::rekcod_connect,
     obj::NodeStatus,
 };
@@ -44,6 +45,14 @@ impl NodeState {
         });
 
         Ok(state)
+    }
+
+    fn get_node_host(&self) -> String {
+        format!("http://{}:{}", self.node.ip, self.node.port)
+    }
+
+    pub fn get_node_agent(&self) -> String {
+        format!("{}{}", self.get_node_host(), REKCOD_AGENT_PREFIX_PATH)
     }
 }
 

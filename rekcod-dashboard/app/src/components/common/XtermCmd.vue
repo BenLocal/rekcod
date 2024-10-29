@@ -1,5 +1,5 @@
 <template>
-  <div style="height: 100%; width: 100%; background: #002833 ">
+  <div style="height: 100%; width: 100%; background: #002833">
     <div id="terminal" ref="terminal" class="terminal-container"></div>
   </div>
 </template>
@@ -19,43 +19,45 @@ const props = defineProps({
 
 const terminal = ref(null)
 const term = new Terminal({
-    rendererType: "canvas",
-    convertEol: true,
-    disableStdin: false,
-    cursorBlink: true,
-    scrollback: 0,
-    theme: {
-      // ??
-      fontFamily: 'Consolas, "Courier New", monospace',
-      // ????
-      foreground: 'wihite',
-      // ???
-      background: '#002833',
-      // ????
-      cursor: 'help',
-      lineHeight: 16,
-    },
+  rendererType: 'canvas',
+  convertEol: true,
+  disableStdin: false,
+  cursorBlink: true,
+  scrollback: 0,
+  theme: {
+    fontFamily: 'Consolas, "Courier New", monospace',
+    foreground: 'wihite',
+    background: '#002833',
+    cursor: 'help',
+    lineHeight: 16,
+  },
 })
 const fitAddon = new FitAddon()
 const searchAddon = new SearchAddon()
 const socket = io(props.url)
 
 const resizeScreen = () => {
-  fitAddon.fit();
+  fitAddon.fit()
   if (term) {
-    const windowSize = {height: term.rows, width: term.cols};
+    const windowSize = { height: term.rows, width: term.cols }
     socket.emit('resize', windowSize)
   }
 }
 
 const initSocket = () => {
   socket.on('connect', () => {
-    console.log("connect")
+    console.log('connect')
     resizeScreen()
   })
 
-  socket.on('out', (data) => {
+  socket.on('out', data => {
     term.write(data)
+  })
+
+  socket.on('err', data => {
+    if (data) {
+      term.write(data + '\n')
+    }
   })
 }
 
@@ -67,16 +69,15 @@ const initTerm = () => {
   term.focus()
   fitAddon.fit()
 
-  term.onData((data) => {
+  term.onData(data => {
     socket.emit('data', data)
   })
- 
 }
 
 onMounted(() => {
   initSocket()
   initTerm()
-  window.addEventListener('resize', resizeScreen, false);
+  window.addEventListener('resize', resizeScreen, false)
 })
 
 onScopeDispose(() => {
@@ -86,25 +87,25 @@ onScopeDispose(() => {
   if (socket) {
     socket.disconnect()
   }
-  window.removeEventListener('resize', resizeScreen, false);
+  window.removeEventListener('resize', resizeScreen, false)
 })
 </script>
 
-<style scoped>
+<style>
 .terminal-container {
-    display: block;
-    width: calc(100% - 1px);
-    margin: 0 auto;
-    padding: 2px;
-    height: calc(100% - 19px);
+  display: block;
+  width: calc(100% - 1px);
+  margin: 0 auto;
+  padding: 2px;
+  height: calc(100% - 19px);
 }
 .terminal-container .terminal {
-    background-color: #000000;
-    color: #fafafa;
-    padding: 2px;
-    height: calc(100% - 19px);
+  background-color: #000000;
+  color: #fafafa;
+  padding: 2px;
+  height: calc(100% - 19px);
 }
 .terminal-container .terminal:focus .terminal-cursor {
-    background-color: #fafafa;
+  background-color: #fafafa;
 }
 </style>

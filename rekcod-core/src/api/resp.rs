@@ -77,6 +77,12 @@ pub struct SystemInfoResponse {
     pub mem_available: u64,
     /// total memory bytes
     pub mem_total: u64,
+    /// memory usage in percent
+    pub mem_usage: f32,
+    /// memory free bytes
+    pub mem_free: u64,
+    /// memory used bytes
+    pub mem_used: u64,
 
     pub disks: Vec<SystemDiskInfo>,
     pub networks: Vec<SystemNetworkInfo>,

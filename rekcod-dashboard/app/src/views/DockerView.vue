@@ -1,10 +1,55 @@
 <template>
-  <el-row class="tac">
+  <el-row class="tac" style="margin-bottom: 15px">
     <el-col :span="12">
       <el-link type="primary" @click="$router.push(`/node`)"
         >Node: &nbsp;
       </el-link>
       {{ node_name }}
+    </el-col>
+  </el-row>
+  <el-row style="margin-bottom: 15px" justify="space-around">
+    <el-col :span="6">
+      <el-card class="box-card" body-class="card-body-center">
+        <template #header>
+          <span>CPU</span>
+        </template>
+        <el-progress type="circle" :percentage="sysInfo.cpu_usage" />
+      </el-card>
+    </el-col>
+    <el-col :span="6">
+      <el-card class="box-card" body-class="card-body-center">
+        <template #header>
+          <span>内存</span>
+        </template>
+        <el-progress type="circle" :percentage="sysInfo.mem_usage" />
+      </el-card>
+    </el-col>
+    <el-col :span="6">
+      <el-card class="box-card" body-class="card-body-center">
+        <template #header>
+          <span>磁盘</span>
+        </template>
+        <div
+          class="disk-progress"
+          v-if="sysInfo.disks && sysInfo.disks.length > 0"
+        >
+          <el-progress
+            v-for="disk in sysInfo.disks"
+            :key="disk.device"
+            type="circle"
+            :text-inside="true"
+            :stroke-width="26"
+            :percentage="disk.percent"
+            striped
+            striped-flow
+            :duration="50"
+            :status="disk.status"
+          />
+        </div>
+        <div v-else>
+          <el-progress type="circle" :percentage="0" status="exception" />
+        </div>
+      </el-card>
     </el-col>
   </el-row>
   <el-row>
@@ -28,26 +73,100 @@
 </template>
 
 <script setup>
-import { ref, shallowRef } from 'vue'
-import DockerContainerList from '../components/docker/DockerContainerList.vue'
+import { onMounted, ref, shallowRef } from 'vue'
+import DockerContainers from '../components/docker/DockerContainers.vue'
 import DockerInfo from '../components/docker/DockerInfo.vue'
+import DockerImages from '../components/docker/DockerImages.vue'
+import DockerNetworks from '../components/docker/DockerNetworks.vue'
+import DockerVolumes from '../components/docker/DockerVolumes.vue'
+import api from '../api'
+import { ElMessage } from 'element-plus'
 
-defineProps({ node_name: String })
+const props = defineProps({ node_name: String })
 const selected = ref('tab-1')
 const tabItems = ref([
   {
     label: 'Containers',
     name: 'tab-1',
-    component: shallowRef(DockerContainerList),
+    component: shallowRef(DockerContainers),
   },
   {
     label: 'Info',
     name: 'tab-2',
     component: shallowRef(DockerInfo),
   },
+  {
+    label: 'Images',
+    name: 'tab-3',
+    component: shallowRef(DockerImages),
+  },
+  {
+    label: 'Networks',
+    name: 'tab-4',
+    component: shallowRef(DockerNetworks),
+  },
+  {
+    label: 'Volumes',
+    name: 'tab-5',
+    component: shallowRef(DockerVolumes),
+  },
 ])
+const sysInfo = ref({
+  cpu: 0,
+  mem: 0,
+  disk: 0,
+})
 
 const on_tab_change = () => {
   console.log(selected.value)
 }
+
+const get_sys = async () => {
+  const { code, data, msg } = await (
+    await api.getNodeSysInfo({ name: props.node_name })
+  ).data
+  if (code !== 0) {
+    ElMessage.error(msg || '获取系统信息失败')
+    return
+  }
+  console.log(data)
+
+  sysInfo.value = {
+    cpu_usage: data.cpu_usage.toFixed(2),
+    mem_usage: data.mem_usage.toFixed(2),
+    disks:
+      data.disks?.map(item => {
+        const p = (((item.total - item.free) / item.total) * 100).toFixed(2)
+        const status = p > 80 ? 'danger' : p > 60 ? 'warning' : 'success'
+        return {
+          name: item.name,
+          percent: p,
+          status: status,
+        }
+      }) || [],
+  }
+}
+
+onMounted(() => {
+  get_sys()
+})
 </script>
+
+<style>
+.card-body-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.disk-progress {
+  width: 100%;
+  height: 100%;
+}
+
+.disk-progress .el-progress--line {
+  margin-bottom: 15px;
+  width: 100%;
+  height: 100%;
+}
+</style>

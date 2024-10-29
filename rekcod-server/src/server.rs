@@ -27,7 +27,7 @@ use crate::{
         docker_container_restart_by_node, docker_container_start_by_node,
         docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
         docker_info_by_node, docker_network_list_by_node, docker_volume_list_by_node, info_node,
-        list_node,
+        list_node, node_sys_info,
     },
     db,
     node::{node_manager, Node},
@@ -39,6 +39,7 @@ pub fn api_routers() -> Router {
     Router::new()
         .route("/node/list", post(list_node))
         .route("/node/info", post(info_node))
+        .route("/node/sys", post(node_sys_info))
         .route("/node/docker/info", post(docker_info_by_node))
         .route(
             "/node/docker/container/list",
