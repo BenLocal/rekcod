@@ -11,6 +11,7 @@ use axum::{
     Router,
 };
 
+use job::{register, sys};
 use pin_project_lite::pin_project;
 use rekcod_core::constants::{DOCKER_PROXY_PATH, REKCOD_AGENT_PREFIX_PATH};
 
@@ -24,8 +25,7 @@ use hyper::{upgrade::Upgraded, StatusCode};
 mod agent;
 pub mod config;
 mod docker;
-mod register;
-mod sys;
+mod job;
 
 pub fn routers() -> Router {
     let client = DockerProxyClient::new();

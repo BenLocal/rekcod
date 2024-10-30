@@ -22,7 +22,7 @@ use tokio::{
 };
 use tokio_util::io::{ReaderStream, StreamReader};
 
-use crate::{config, sys::sys_info};
+use crate::{config, job::sys::sys_info};
 
 pub fn routers() -> Router {
     Router::new()

@@ -22,7 +22,7 @@ pub(crate) async fn register_node(cancel: CancellationToken) -> anyhow::Result<(
                 );
 
                 let my_local_ip = local_ip_address::local_ip().map(|s| s.to_string()).unwrap_or("127.0.0.1".to_string());
-                let sys = crate::sys::sys_info_global();
+                let sys = crate::job::sys::sys_info_global();
                 let req = RegisterNodeRequest {
                     name: my_local_ip.clone(),
                     host_name: sys.host_name.clone().unwrap_or("unknown".to_string()),
