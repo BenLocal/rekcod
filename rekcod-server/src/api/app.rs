@@ -23,15 +23,29 @@ use futures::{Stream, StreamExt as _};
 use hyper::{header, StatusCode};
 use rekcod_core::{
     api::{
-        req::{NodeDockerQueryRequest, NodeInfoRequest, NodeListRequest, NodeSysInfoRequest},
-        resp::{ApiJsonResponse, NodeItemResponse, SystemInfoResponse},
+        req::{NodeDockerQueryRequest, NodeInfoRequest, NodeListRequest},
+        resp::{ApiJsonResponse, NodeItemResponse},
     },
-    client::get_client,
     http::ApiError,
 };
 use tracing::info;
 
 use crate::node::{node_manager, NodeState};
+
+macro_rules! get_state {
+    ($name:expr) => {
+        node_manager()
+            .get_node(&$name)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("node {} not found", &$name))?
+    };
+}
+
+macro_rules! docker_exec {
+    ($exec:expr) => {
+        Ok(ApiJsonResponse::success($exec?).into())
+    };
+}
 
 pub async fn list_node(
     Json(req): Json<NodeListRequest>,
@@ -57,233 +71,130 @@ pub async fn info_node(
     Ok(ApiJsonResponse::success_optional(node).into())
 }
 
-pub async fn node_sys_info(
-    Json(req): Json<NodeSysInfoRequest>,
-) -> Result<Json<ApiJsonResponse<SystemInfoResponse>>, ApiError> {
-    let n = node_manager().get_node(&req.name).await?;
-
-    if let Some(n) = n {
-        let res = get_client()?
-            .get(format!("{}/sys", n.get_node_agent()))
-            .send()
-            .await?;
-
-        return Ok(res
-            .json::<ApiJsonResponse<SystemInfoResponse>>()
-            .await?
-            .into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
-}
-
 pub async fn docker_image_list_by_node(
     Query(query): Query<NodeDockerQueryRequest>,
 ) -> Result<Json<ApiJsonResponse<Vec<ImageSummary>>>, ApiError> {
-    info!("docker image list: {:?}", query);
-    let n = node_manager().get_node(&query.node_name).await?;
+    let state = get_state!(query.node_name);
 
     let options = Some(ListImagesOptions::<&str> {
         all: true,
         ..Default::default()
     });
 
-    if let Some(n) = n {
-        let docker_client = &n.docker;
-        return Ok(ApiJsonResponse::success(docker_client.list_images(options).await?).into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
+    docker_exec!(state.docker.list_images(options).await)
 }
 
 pub async fn docker_info_by_node(
     Query(query): Query<NodeDockerQueryRequest>,
 ) -> Result<Json<ApiJsonResponse<SystemInfo>>, ApiError> {
-    info!("docker info: {:?}", query);
-    let n = node_manager().get_node(&query.node_name).await?;
-
-    if let Some(n) = n {
-        let docker_client = &n.docker;
-        return Ok(ApiJsonResponse::success(docker_client.info().await?).into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
+    let state = get_state!(query.node_name);
+    docker_exec!(state.docker.info().await)
 }
 
 pub async fn docker_container_start_by_node(
     Query(query): Query<NodeDockerQueryRequest>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiJsonResponse<()>>, ApiError> {
-    info!("docker container start: {:?}", query);
-    let n = node_manager().get_node(&query.node_name).await?;
-
-    if let Some(n) = n {
-        let docker_client = &n.docker;
-        docker_client.start_container::<&str>(&id, None).await?;
-        return Ok(ApiJsonResponse::success(()).into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
+    let state = get_state!(query.node_name);
+    docker_exec!(state.docker.start_container::<&str>(&id, None).await)
 }
 
 pub async fn docker_container_stop_by_node(
     Query(query): Query<NodeDockerQueryRequest>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiJsonResponse<()>>, ApiError> {
-    info!("docker container stop: {:?}", query);
-    let n = node_manager().get_node(&query.node_name).await?;
-
-    if let Some(n) = n {
-        let docker_client = &n.docker;
-        docker_client.stop_container(&id, None).await?;
-        return Ok(ApiJsonResponse::success(()).into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
+    let state = get_state!(query.node_name);
+    docker_exec!(state.docker.stop_container(&id, None).await)
 }
 
 pub async fn docker_container_logs_by_node(
     Query(query): Query<NodeDockerQueryRequest>,
     Path(id): Path<String>,
 ) -> Result<Response, ApiError> {
-    let n = node_manager().get_node(&query.node_name).await?;
-    if let Some(n) = n {
-        let docker_client = &n.docker;
-        let stream = docker_client
-            .logs(
-                &id,
-                Some(LogsOptions {
-                    follow: true,
-                    stdout: true,
-                    stderr: true,
-                    tail: "100".to_string(),
-                    ..Default::default()
-                }),
-            )
-            .map(|res| match res {
-                Ok(info) => Ok(info.into_bytes()),
-                Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
-            });
-        return Ok(Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, "application/octet-stream")
-            .body(Body::from_stream(stream))?);
-    }
-
-    Ok(Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .body(Body::empty())?)
+    let state = get_state!(query.node_name);
+    let stream = state
+        .docker
+        .logs(
+            &id,
+            Some(LogsOptions {
+                follow: true,
+                stdout: true,
+                stderr: true,
+                tail: "100".to_string(),
+                ..Default::default()
+            }),
+        )
+        .map(|res| match res {
+            Ok(info) => Ok(info.into_bytes()),
+            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
+        });
+    return Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/octet-stream")
+        .body(Body::from_stream(stream))?);
 }
 
 pub async fn docker_container_info_by_node(
     Query(query): Query<NodeDockerQueryRequest>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiJsonResponse<ContainerInspectResponse>>, ApiError> {
-    info!("docker container restart: {:?}", query);
-    let n = node_manager().get_node(&query.node_name).await?;
-
-    if let Some(n) = n {
-        let docker_client = &n.docker;
-        let options = Some(InspectContainerOptions {
-            size: true,
-            ..Default::default()
-        });
-        let resp = docker_client.inspect_container(&id, options).await?;
-        return Ok(ApiJsonResponse::success(resp).into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
+    let state = get_state!(query.node_name);
+    let options = Some(InspectContainerOptions {
+        size: true,
+        ..Default::default()
+    });
+    docker_exec!(state.docker.inspect_container(&id, options).await)
 }
 
 pub async fn docker_container_delete_by_node(
     Query(query): Query<NodeDockerQueryRequest>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiJsonResponse<()>>, ApiError> {
-    info!("docker container restart: {:?}", query);
-    let n = node_manager().get_node(&query.node_name).await?;
-
-    if let Some(n) = n {
-        let docker_client = &n.docker;
-        let options = Some(RemoveContainerOptions {
-            force: true,
-            ..Default::default()
-        });
-        docker_client.remove_container(&id, options).await?;
-        return Ok(ApiJsonResponse::success(()).into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
+    let state = get_state!(query.node_name);
+    let options = Some(RemoveContainerOptions {
+        force: true,
+        ..Default::default()
+    });
+    docker_exec!(state.docker.remove_container(&id, options).await)
 }
 
 pub async fn docker_container_restart_by_node(
     Query(query): Query<NodeDockerQueryRequest>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiJsonResponse<()>>, ApiError> {
-    info!("docker container restart: {:?}", query);
-    let n = node_manager().get_node(&query.node_name).await?;
-
-    if let Some(n) = n {
-        let docker_client = &n.docker;
-        docker_client.restart_container(&id, None).await?;
-        return Ok(ApiJsonResponse::success(()).into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
+    let state = get_state!(query.node_name);
+    docker_exec!(state.docker.restart_container(&id, None).await)
 }
 
 pub async fn docker_container_list_by_node(
     Query(query): Query<NodeDockerQueryRequest>,
 ) -> Result<Json<ApiJsonResponse<Vec<ContainerSummary>>>, ApiError> {
-    info!("docker container list: {:?}", query);
-    let n = node_manager().get_node(&query.node_name).await?;
-
-    if let Some(n) = n {
-        let options = Some(ListContainersOptions::<&str> {
-            all: true,
-            ..Default::default()
-        });
-
-        let docker_client = &n.docker;
-        return Ok(ApiJsonResponse::success(docker_client.list_containers(options).await?).into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
+    let state = get_state!(query.node_name);
+    let options = Some(ListContainersOptions::<&str> {
+        all: true,
+        ..Default::default()
+    });
+    docker_exec!(state.docker.list_containers(options).await)
 }
 
 pub async fn docker_network_list_by_node(
     Query(query): Query<NodeDockerQueryRequest>,
 ) -> Result<Json<ApiJsonResponse<Vec<Network>>>, ApiError> {
-    info!("docker network list: {:?}", query);
-    let n = node_manager().get_node(&query.node_name).await?;
-
-    if let Some(n) = n {
-        let options = Some(ListNetworksOptions::<&str> {
-            ..Default::default()
-        });
-
-        let docker_client = &n.docker;
-        return Ok(ApiJsonResponse::success(docker_client.list_networks(options).await?).into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
+    let state = get_state!(query.node_name);
+    let options = Some(ListNetworksOptions::<&str> {
+        ..Default::default()
+    });
+    docker_exec!(state.docker.list_networks(options).await)
 }
 
 pub async fn docker_volume_list_by_node(
     Query(query): Query<NodeDockerQueryRequest>,
 ) -> Result<Json<ApiJsonResponse<VolumeListResponse>>, ApiError> {
-    info!("docker network list: {:?}", query);
-    let n = node_manager().get_node(&query.node_name).await?;
-
-    if let Some(n) = n {
-        let options = Some(ListVolumesOptions::<&str> {
-            ..Default::default()
-        });
-
-        let docker_client = &n.docker;
-        return Ok(ApiJsonResponse::success(docker_client.list_volumes(options).await?).into());
-    }
-
-    Ok(ApiJsonResponse::empty_success().into())
+    let state = get_state!(query.node_name);
+    let options = Some(ListVolumesOptions::<&str> {
+        ..Default::default()
+    });
+    docker_exec!(state.docker.list_volumes(options).await)
 }
 
 pub async fn docker_image_pull_auto(

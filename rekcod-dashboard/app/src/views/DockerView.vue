@@ -19,7 +19,7 @@
     <el-col :span="6">
       <el-card class="box-card" body-class="card-body-center">
         <template #header>
-          <span>内存</span>
+          <span>Mem</span>
         </template>
         <el-progress type="circle" :percentage="sysInfo.mem_usage" />
       </el-card>
@@ -27,7 +27,7 @@
     <el-col :span="6">
       <el-card class="box-card" body-class="card-body-center">
         <template #header>
-          <span>磁盘</span>
+          <span>Disks</span>
         </template>
         <div
           class="disk-progress"
@@ -36,7 +36,6 @@
           <el-progress
             v-for="disk in sysInfo.disks"
             :key="disk.device"
-            type="circle"
             :text-inside="true"
             :stroke-width="26"
             :percentage="disk.percent"
@@ -66,7 +65,7 @@
         :label="item.label"
         :name="item.name"
       >
-        <component :is="item.component" :node_name="node_name"></component>
+        <component v-if="selected == item.name" :is="item.component" :node_name="node_name"></component>
       </el-tab-pane>
     </el-tabs>
   </el-row>
@@ -114,7 +113,7 @@ const tabItems = ref([
 const sysInfo = ref({
   cpu: 0,
   mem: 0,
-  disk: 0,
+  disk: [],
 })
 
 const on_tab_change = () => {
@@ -123,7 +122,7 @@ const on_tab_change = () => {
 
 const get_sys = async () => {
   const { code, data, msg } = await (
-    await api.getNodeSysInfo({ name: props.node_name })
+    await api.getNodeSysInfo(props.node_name)
   ).data
   if (code !== 0) {
     ElMessage.error(msg || '获取系统信息失败')

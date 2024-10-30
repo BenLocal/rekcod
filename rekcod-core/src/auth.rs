@@ -1,13 +1,17 @@
-use axum::{extract::Request, middleware::Next, response::Response};
+use axum::{extract::Request, http::HeaderValue, middleware::Next, response::Response};
 use hyper::StatusCode;
 use once_cell::sync::OnceCell;
 
-static REKCOD_TOKEN: OnceCell<String> = OnceCell::new();
+use crate::constants::TOEKN_HEADER_KEY;
 
-pub const TOEKN_HEADER_KEY: &'static str = "X-REKCOD-TOKEN";
+static REKCOD_TOKEN: OnceCell<String> = OnceCell::new();
 
 pub fn get_token() -> &'static str {
     REKCOD_TOKEN.get().expect("pls init rekcod token first")
+}
+
+pub fn header_value_token() -> HeaderValue {
+    HeaderValue::from_static(get_token())
 }
 
 pub fn set_token(token: String) {

@@ -47,10 +47,12 @@ impl NodeState {
         Ok(state)
     }
 
+    #[allow(dead_code)]
     fn get_node_host(&self) -> String {
         format!("http://{}:{}", self.node.ip, self.node.port)
     }
 
+    #[allow(dead_code)]
     pub fn get_node_agent(&self) -> String {
         format!("{}{}", self.get_node_host(), REKCOD_AGENT_PREFIX_PATH)
     }

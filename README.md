@@ -26,3 +26,8 @@ cargo machete --with-metadata
 ```
 cargo machete --fix
 ```
+
+## rust cross build
+```
+cargo install cross --git https://github.com/cross-rs/cross
+```

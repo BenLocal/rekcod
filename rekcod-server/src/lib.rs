@@ -1,6 +1,6 @@
-use std::{borrow::Cow, path::Path};
+use std::{borrow::Cow, path::Path, sync::Arc};
 
-use api::socketio::socketio_routers;
+use api::{node_proxy::create_node_proxy_client, socketio::socketio_routers};
 use axum::Router;
 use futures::future::BoxFuture;
 use rekcod_core::{
@@ -26,9 +26,14 @@ mod node;
 mod server;
 
 pub fn routers() -> Router {
+    let ctx = Arc::new(create_node_proxy_client());
+
     let mut router = Router::new()
-        .nest(REKCOD_SERVER_PREFIX_PATH, server::routers())
-        .nest(REKCOD_API_PREFIX_PATH, server::api_routers());
+        .nest(REKCOD_SERVER_PREFIX_PATH, server::routers(Arc::clone(&ctx)))
+        .nest(
+            REKCOD_API_PREFIX_PATH,
+            server::api_routers(Arc::clone(&ctx)),
+        );
 
     let config = config::rekcod_server_config();
     if config.dashboard {

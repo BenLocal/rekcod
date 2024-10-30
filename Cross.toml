@@ -1,0 +1,7 @@
+[build]
+
+[target.x86_64-unknown-linux-musl]
+dockerfile = "./build/x86_64-unknown-linux-musl/Dockerfile"
+
+[target.aarch64-unknown-linux-musl]
+dockerfile = "./build/aarch64-unknown-linux-musl/Dockerfile"

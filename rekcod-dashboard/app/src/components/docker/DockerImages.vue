@@ -31,6 +31,13 @@ const get_docker_images_list = async node_name => {
   }
 
   images.value = data.map(item => {
+    let name = "<none>"
+    let tag = "<none>"
+    if (item.RepoTags && item.RepoTags.length > 0) {
+      name = item.RepoTags[0].split(':')[0] || "<none>"
+      tag = item.RepoTags[0].split(':')[1] || "<none>"
+    }
+
     return {
       id: item.Id.replace('sha256:', '').substring(0, 12),
       name: item.RepoTags[0].split(':')[0],

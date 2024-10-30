@@ -1,6 +1,6 @@
 use hyper::header;
 
-use crate::auth::{get_token, TOEKN_HEADER_KEY};
+use crate::{auth::get_token, constants::TOEKN_HEADER_KEY};
 
 pub fn get_client() -> anyhow::Result<reqwest::Client> {
     let mut headers = header::HeaderMap::new();

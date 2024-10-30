@@ -1,45 +1,40 @@
 use std::sync::Arc;
 
 use axum::{
-    body::Body,
-    extract::{Path, Request, State},
     middleware,
-    response::{IntoResponse as _, Response},
     routing::{any, post},
     Json, Router,
 };
-use hyper::{StatusCode, Uri};
-use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
 use rekcod_core::{
     api::{req::RegisterNodeRequest, resp::ApiJsonResponse},
     auth::token_auth,
-    constants::{DOCKER_PROXY_PATH, REKCOD_AGENT_PREFIX_PATH},
     http::ApiError,
     obj::NodeStatus,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tracing::info;
 
 use crate::{
-    api::app::{
-        docker_container_delete_by_node, docker_container_info_by_node,
-        docker_container_list_by_node, docker_container_logs_by_node,
-        docker_container_restart_by_node, docker_container_start_by_node,
-        docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
-        docker_info_by_node, docker_network_list_by_node, docker_volume_list_by_node, info_node,
-        list_node, node_sys_info,
+    api::{
+        app::{
+            docker_container_delete_by_node, docker_container_info_by_node,
+            docker_container_list_by_node, docker_container_logs_by_node,
+            docker_container_restart_by_node, docker_container_start_by_node,
+            docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
+            docker_info_by_node, docker_network_list_by_node, docker_volume_list_by_node,
+            info_node, list_node,
+        },
+        node_proxy::{node_proxy_handler, NodeProxyClient},
     },
     db,
     node::{node_manager, Node},
 };
 
-type Client = hyper_util::client::legacy::Client<HttpConnector, Body>;
-
-pub fn api_routers() -> Router {
+pub fn api_routers(ctx: Arc<NodeProxyClient>) -> Router {
     Router::new()
         .route("/node/list", post(list_node))
         .route("/node/info", post(info_node))
-        .route("/node/sys", post(node_sys_info))
+        .route("/node/proxy/*sub", any(node_proxy_handler))
         .route("/node/docker/info", post(docker_info_by_node))
         .route(
             "/node/docker/container/list",
@@ -76,21 +71,15 @@ pub fn api_routers() -> Router {
             post(docker_network_list_by_node),
         )
         .route("/node/docker/volume/list", post(docker_volume_list_by_node))
+        .with_state(ctx)
 }
 
-pub fn routers() -> Router {
-    let client: Client =
-        hyper_util::client::legacy::Client::<(), ()>::builder(TokioExecutor::new())
-            .build(HttpConnector::new());
-
-    let ctx = Arc::new(client);
-
+pub fn routers(ctx: Arc<NodeProxyClient>) -> Router {
     Router::new()
         .route("/node/register", post(register_node))
-        .route("/node/:node_name/:typ/*sub", any(node_proxy))
+        .route("/node/proxy/*sub", any(node_proxy_handler))
         .with_state(Arc::clone(&ctx))
         .layer(middleware::from_fn(token_auth))
-        .merge(api_routers())
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -158,53 +147,6 @@ async fn register_node(
 
     let resp = RegisterNodeResponse {};
     Ok(ApiJsonResponse::success(resp).into())
-}
-
-async fn node_proxy(
-    State(ctx): State<Arc<Client>>,
-    Path((node_name, typ, _sub)): Path<(String, String, String)>,
-    mut req: Request,
-) -> Result<Response, StatusCode> {
-    let path = req.uri().path();
-    let path_query = req
-        .uri()
-        .path_and_query()
-        .map(|v| {
-            let without_prefix = v
-                .as_str()
-                .strip_prefix(format!("/node/{}/{}", node_name, typ).as_str())
-                .unwrap_or(path);
-            without_prefix
-        })
-        .unwrap_or(path);
-
-    let node = node_manager()
-        .get_node(&node_name)
-        .await
-        .map_err(|e| {
-            error!("node {} not found: {}", node_name, e);
-            StatusCode::BAD_REQUEST
-        })?
-        .ok_or(StatusCode::BAD_REQUEST)?;
-
-    let s = match typ.as_str() {
-        "proxy.docker" => DOCKER_PROXY_PATH,
-        "proxy.base" => REKCOD_AGENT_PREFIX_PATH,
-        _ => "",
-    };
-
-    let uri = format!(
-        "http://{}:{}{}{}",
-        node.node.ip, node.node.port, s, path_query
-    );
-
-    *req.uri_mut() = Uri::try_from(uri).map_err(|_| StatusCode::BAD_REQUEST)?;
-
-    Ok(ctx
-        .request(req)
-        .await
-        .map_err(|_| StatusCode::BAD_REQUEST)?
-        .into_response())
 }
 
 #[cfg(test)]
