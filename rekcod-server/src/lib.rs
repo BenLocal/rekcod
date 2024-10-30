@@ -167,7 +167,7 @@ async fn init_rekcod_client_config() -> anyhow::Result<()> {
         token: token.clone(),
     };
 
-    tokio::fs::write(cfg_path, serde_json::to_string(&c)?).await?;
+    tokio::fs::write(cfg_path, serde_json::to_string_pretty(&c)?).await?;
     info!("init token success: {}", token);
     Ok(())
 }
