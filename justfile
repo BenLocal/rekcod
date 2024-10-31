@@ -13,3 +13,13 @@ cross target:
 
 tidy:
   cargo machete --fix
+
+pkg target:
+  rm -rf release/{{ target }} && mkdir -p release/{{ target }}
+  cp ./target/{{ target }}/release/rekcod release/{{ target }}/rekcod
+  cp ./target/{{ target }}/release/rekcodd release/{{ target }}/rekcodd
+  cp ./scripts/** release/{{ target }}/
+
+release:
+  just pkg x86_64-unknown-linux-musl
+  just pkg aarch64-unknown-linux-musl

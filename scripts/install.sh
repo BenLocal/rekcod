@@ -54,6 +54,7 @@ stop_service() {
     systemctl stop rekcod
 }
 
+setup_env "$@"
 create_env
 create_systemd_service
 start_and_enable_service

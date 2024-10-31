@@ -30,3 +30,5 @@ rekcod-server/image.tar
 .vscode/*
 !.vscode/extensions.json
 db.sqlite
+
+release/
