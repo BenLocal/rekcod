@@ -7,6 +7,28 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug executable 'rekcod'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rekcod",
+                    "--package=rekcod"
+                ],
+                "filter": {
+                    "name": "rekcodd",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--rekcod-config",
+                "${workspaceFolder}/target/config",
+                "node",
+                "ls"
+            ]
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug unit tests in library 'rekcod_core'",
             "cargo": {
                 "args": [

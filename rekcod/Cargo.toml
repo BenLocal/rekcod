@@ -16,3 +16,4 @@ tokio = { workspace = true, features = ["full"] }
 serde_json = { workspace = true }
 tabled = { workspace = true }
 bollard = { workspace = true }
+which = { workspace = true }

@@ -9,7 +9,7 @@ use rekcod_core::{
     constants::{REKCOD_CONFIG_DEFAULT_PATH, REKCOD_CONFIG_FILE_NAME},
     obj::RekcodCfg,
 };
-use tracing::{error, info};
+use tracing::{debug, error};
 
 mod config;
 mod docker;
@@ -55,19 +55,18 @@ async fn main() {
 
     config::init_rekcod_cli_config(RekcodCliConfig { host: cfg.host });
 
-    match args.command {
-        RekcodSubCommand::Node(args) => {
-            node::run(args).await;
-        }
-        RekcodSubCommand::Docker(args) => {
-            docker::run(args).await;
-        }
+    if let Err(e) = match args.command {
+        RekcodSubCommand::Node(args) => node::run(args).await,
+        RekcodSubCommand::Docker(args) => docker::run(args).await,
+    } {
+        error!("{:?}", e);
+        std::process::exit(1);
     }
 }
 
 async fn init_token(rekcod_config: Option<String>) -> anyhow::Result<RekcodCfg> {
     let path = get_rekcod_config_path(rekcod_config)?;
-    info!("config path: {}", path);
+    debug!("config path: {}", path);
     let cfg_str = tokio::fs::read_to_string(&path).await?;
 
     let c = serde_json::from_str::<RekcodCfg>(&cfg_str)?;

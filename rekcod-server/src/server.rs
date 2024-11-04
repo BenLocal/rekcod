@@ -78,6 +78,8 @@ pub fn routers(ctx: Arc<NodeProxyClient>) -> Router {
     Router::new()
         .route("/node/register", post(register_node))
         .route("/node/proxy/*sub", any(node_proxy_handler))
+        .route("/node/list", post(list_node))
+        .route("/node/info", post(info_node))
         .with_state(Arc::clone(&ctx))
         .layer(middleware::from_fn(token_auth))
 }

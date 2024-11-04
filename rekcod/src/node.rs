@@ -7,7 +7,6 @@ use rekcod_core::{
     client::get_client,
 };
 use tabled::{settings::Style, Table};
-use tracing::error;
 
 use crate::config::rekcod_cli_config;
 
@@ -24,11 +23,9 @@ pub struct ListNodeArgs {
     pub all: bool,
 }
 
-pub(crate) async fn run(args: NodeArgs) {
-    if let Err(e) = match args {
+pub(crate) async fn run(args: NodeArgs) -> anyhow::Result<()> {
+    match args {
         NodeArgs::List(args) => list_node(args).await,
-    } {
-        error!("{:?}", e);
     }
 }
 

@@ -1,5 +1,4 @@
-use bollard::{container::ListContainersOptions, Docker};
-use clap::{command, Args, Subcommand};
+use clap::Args;
 use rekcod_core::{
     api::{
         req::NodeInfoRequest,
@@ -7,10 +6,10 @@ use rekcod_core::{
     },
     auth::get_token,
     client::get_client,
-    docker::rekcod_connect,
+    constants::{DOCKER_PROXY_PATH, TOEKN_HEADER_KEY},
 };
-use tabled::{settings::Style, Table, Tabled};
-use tracing::error;
+use tokio::process::Command;
+use which::which;
 
 use crate::config::rekcod_cli_config;
 
@@ -20,37 +19,21 @@ pub struct DockerArgs {
     #[arg(short, long)]
     pub node: String,
 
-    #[command(subcommand)]
-    pub command: DockerSubCommand,
+    #[clap(trailing_var_arg = true)]
+    pub sub_command: Vec<String>,
 }
 
-#[derive(Debug, Subcommand)]
-pub enum DockerSubCommand {
-    List(DockerListArgs),
+struct DockerCli(Command);
+
+pub(crate) async fn run(args: DockerArgs) -> anyhow::Result<()> {
+    let mut docker_cli = inner_run(&args).await?;
+    let mut out = docker_cli.0.spawn()?;
+    out.wait().await?;
+
+    Ok(())
 }
 
-#[derive(Debug, Args)]
-#[command(author, version, about = "list node, alias: ls", alias = "ls", long_about = None)]
-pub struct DockerListArgs {
-    #[arg(short, long, default_value_t = false)]
-    pub all: bool,
-}
-
-pub(crate) async fn run(args: DockerArgs) {
-    println!("docker: {:?}", args);
-
-    if let Ok(docker_client) = inner_run(&args).await {
-        if let Err(e) = match args.command {
-            DockerSubCommand::List(sub) => list_docker(&docker_client, &sub).await,
-        } {
-            error!("{}", e);
-        }
-    } else {
-        error!("docker connect error");
-    }
-}
-
-async fn inner_run(args: &DockerArgs) -> anyhow::Result<Docker> {
+async fn inner_run(args: &DockerArgs) -> anyhow::Result<DockerCli> {
     let config = rekcod_cli_config();
     let req = NodeInfoRequest {
         name: args.node.clone(),
@@ -68,63 +51,20 @@ async fn inner_run(args: &DockerArgs) -> anyhow::Result<Docker> {
     }
 
     if let Some(data) = resp.data() {
-        let docker_client = rekcod_connect(
-            Some(format!("http://{}:{}", data.ip, data.port)),
-            rekcod_core::constants::DOCKER_PROXY_PATH,
-            40,
-            get_token(),
-        )?;
-        return Ok(docker_client);
+        let docker_path = which("docker")?;
+        let mut cmd = tokio::process::Command::new(docker_path);
+        cmd.env(
+            "DOCKER_HOST",
+            format!("tcp://{}:{}{}", data.ip, data.port, DOCKER_PROXY_PATH),
+        );
+        cmd.env(
+            "DOCKER_CUSTOM_HEADERS",
+            format!("{}={}", TOEKN_HEADER_KEY, get_token()),
+        );
+        cmd.args(&args.sub_command);
+
+        return Ok(DockerCli(cmd));
     } else {
         return Err(anyhow::anyhow!("node {} not found", args.node));
     }
-}
-
-#[derive(Debug, Tabled)]
-#[tabled(rename_all = "UPPERCASE")]
-struct ContainerInfo {
-    id: String,
-    name: String,
-    status: String,
-    image: String,
-}
-
-impl From<bollard::models::ContainerSummary> for ContainerInfo {
-    fn from(ci: bollard::models::ContainerSummary) -> Self {
-        Self {
-            name: ci
-                .names
-                .map(|s| s.into_iter().next())
-                .flatten()
-                .unwrap_or("".to_string()),
-            status: ci.status.unwrap_or("".to_string()),
-            image: ci.image.unwrap_or("".to_string()),
-            id: ci.id.unwrap_or("".to_string()).chars().take(12).collect(),
-        }
-    }
-}
-
-async fn list_docker(docker_client: &Docker, args: &DockerListArgs) -> anyhow::Result<()> {
-    println!("list docker: {:?}", args);
-
-    let options = Some(ListContainersOptions::<String> {
-        all: args.all,
-        ..Default::default()
-    });
-    let ls = docker_client
-        .list_containers(options)
-        .await?
-        .into_iter()
-        .map(ContainerInfo::from)
-        .collect::<Vec<_>>();
-
-    let mut table = if ls.len() > 0 {
-        Table::new(&ls)
-    } else {
-        Table::default()
-    };
-
-    table.with(Style::blank());
-    println!("{}", table);
-    Ok(())
 }
