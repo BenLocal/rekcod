@@ -13,7 +13,7 @@ use socketioxide::{
 };
 use tokio::{io::AsyncWriteExt, sync::Mutex};
 use tokio_util::sync::CancellationToken;
-use tracing::info;
+use tracing::{debug, info};
 use url::Url;
 
 use crate::node::{node_manager, NodeState};
@@ -76,7 +76,7 @@ async fn on_connect(socket: SocketRef) {
     socket.on(
         "data",
         |_socket: SocketRef, Data::<String>(data)| async move {
-            info!(?data, "Received event:");
+            debug!(?data, "Received event:");
             {
                 let mut input = input.lock().await;
                 if let Err(err) = input.write(data.as_bytes()).await {
@@ -93,7 +93,7 @@ async fn on_connect(socket: SocketRef) {
     socket.on(
         "resize",
         |_socket: SocketRef, Data::<ResizeInfo>(data)| async move {
-            info!(?data, "Received resize event:");
+            debug!(?data, "Received resize event:");
             {
                 let _ = resize_docker_cmd(node_clone, &data, &exec_id).await;
             }
