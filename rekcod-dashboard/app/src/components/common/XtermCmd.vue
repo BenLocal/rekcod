@@ -50,6 +50,13 @@ const initSocket = () => {
     resizeScreen()
   })
 
+  socket.on('connected', data => {
+    console.log('connected')
+    if (data == 'ok') {
+      resizeScreen()
+    }
+  })
+
   socket.on('out', data => {
     term.write(data)
   })
