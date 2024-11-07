@@ -32,3 +32,5 @@ tower-http = { workspace = true, features = ["cors", "fs", "trace"] }
 tower = { workspace = true }
 minijinja = { workspace = true, features = ["loader"] }
 minijinja-autoreload = { workspace = true }
+async-walkdir = { workspace = true }
+serde_yaml = { workspace = true }

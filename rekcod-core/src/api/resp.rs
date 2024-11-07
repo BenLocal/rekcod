@@ -129,3 +129,12 @@ pub struct NodeItemResponse {
     pub os_kernel: String,
     pub status: bool,
 }
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct ApplicationResponse {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub version: String,
+    pub tmpls: Vec<String>,
+}

@@ -101,7 +101,7 @@
             "args": [
                 "server",
                 "--data-path",
-                "${workspaceFolder}/target/data",
+                "${workspaceFolder}/resource/data",
                 "--config-path",
                 "${workspaceFolder}/target/config",
             ],

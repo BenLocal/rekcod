@@ -9,3 +9,5 @@ pub const REKCOD_CONFIG_FILE_NAME: &'static str = "rekcod.json";
 
 pub const REKCOD_API_NODE_NAME_HEADER_KEY: &'static str = "X-NODE-NAME";
 pub const TOEKN_HEADER_KEY: &'static str = "X-REKCOD-TOKEN";
+
+pub const REKCOD_DATA_APP_ROOT: &'static str = "app";
