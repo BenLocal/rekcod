@@ -81,6 +81,7 @@ impl Into<RekcodServerConfig> for ServerArgs {
             api_port: self.port,
             dashboard: self.dashboard,
             dashboard_base_url: self.dashboard_base_url,
+            data_path: self.data_path,
         }
     }
 }

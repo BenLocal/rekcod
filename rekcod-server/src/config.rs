@@ -4,6 +4,7 @@ use once_cell::sync::OnceCell;
 pub struct RekcodServerConfig {
     pub db_url: String,
     pub config_path: String,
+    pub data_path: String,
     pub api_port: u16,
     pub dashboard: bool,
     pub dashboard_base_url: Option<String>,

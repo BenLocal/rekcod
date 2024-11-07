@@ -24,6 +24,7 @@ pub mod config;
 mod db;
 mod node;
 mod server;
+mod tmpl;
 
 pub fn routers() -> Router {
     let ctx = Arc::new(create_node_proxy_client());
