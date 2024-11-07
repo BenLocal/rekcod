@@ -29,6 +29,7 @@ rekcod-server/image.tar
 # vscode
 .vscode/*
 !.vscode/extensions.json
-db.sqlite
 
 release/
+
+.env
