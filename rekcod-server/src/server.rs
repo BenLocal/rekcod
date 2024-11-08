@@ -16,17 +16,15 @@ use tracing::info;
 
 use crate::{
     api::{
-        app::{
-            application::get_app_list,
-            docker::{
-                docker_container_delete_by_node, docker_container_info_by_node,
-                docker_container_list_by_node, docker_container_logs_by_node,
-                docker_container_restart_by_node, docker_container_start_by_node,
-                docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
-                docker_info_by_node, docker_network_list_by_node, docker_volume_list_by_node,
-            },
-            node::{info_node, list_node},
+        application::get_app_list,
+        docker::{
+            docker_container_delete_by_node, docker_container_info_by_node,
+            docker_container_list_by_node, docker_container_logs_by_node,
+            docker_container_restart_by_node, docker_container_start_by_node,
+            docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
+            docker_info_by_node, docker_network_list_by_node, docker_volume_list_by_node,
         },
+        node::{info_node, list_node},
         node_proxy::{node_proxy_handler, NodeProxyClient},
     },
     db,
