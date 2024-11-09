@@ -55,3 +55,10 @@ pub struct NodeDockerQueryRequest {
 pub struct NodeSysInfoRequest {
     pub name: String,
 }
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+#[serde(default)]
+pub struct RenderTmplRequest {
+    pub tmpl_context: String,
+    pub tmpl_values: String,
+}

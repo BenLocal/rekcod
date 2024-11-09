@@ -1,4 +1,8 @@
-name: this is a test1
+name: this is a test
 version: 1
 description: this is a test1
 icon: test1
+values:
+  out_port: 80
+  in_port: 8080
+  service_name: test

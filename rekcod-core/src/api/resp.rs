@@ -135,6 +135,12 @@ pub struct ApplicationResponse {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub version: String,
+    pub version: Option<String>,
     pub tmpls: Vec<String>,
+    pub values: String,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct RenderTmplResponse {
+    pub content: String,
 }

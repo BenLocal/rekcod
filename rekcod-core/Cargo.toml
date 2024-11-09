@@ -16,3 +16,5 @@ once_cell = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 tabled = { workspace = true }
 base64 = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }

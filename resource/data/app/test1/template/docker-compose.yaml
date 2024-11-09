@@ -1,0 +1,11 @@
+version: 3
+
+services:
+  test1:
+    image: test1
+    ports:
+      - {{ out_port }} : {{ in_port }}
+    environment:
+      - PORT=8080
+    depends_on:
+      - {{ service_name }}

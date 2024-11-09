@@ -13,6 +13,7 @@ use tracing::{debug, error};
 
 mod config;
 mod docker;
+mod docker_compose;
 mod node;
 
 #[derive(Parser)]
@@ -32,6 +33,8 @@ enum RekcodSubCommand {
     Node(NodeArgs),
 
     Docker(DockerArgs),
+
+    DockerCompose(docker_compose::DockerArgs),
 }
 
 #[tokio::main]
@@ -58,6 +61,7 @@ async fn main() {
     if let Err(e) = match args.command {
         RekcodSubCommand::Node(args) => node::run(args).await,
         RekcodSubCommand::Docker(args) => docker::run(args).await,
+        RekcodSubCommand::DockerCompose(docker_args) => docker_compose::run(docker_args).await,
     } {
         error!("{:?}", e);
         std::process::exit(1);

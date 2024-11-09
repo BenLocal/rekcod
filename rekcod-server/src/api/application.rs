@@ -1,69 +1,76 @@
-use std::path::PathBuf;
-
-use axum::Json;
+use axum::{
+    body::Body,
+    extract::Path,
+    response::{IntoResponse as _, Response},
+    Json,
+};
+use hyper::Request;
 use rekcod_core::{
-    api::resp::{ApiJsonResponse, ApplicationResponse},
-    application::Application,
+    api::{
+        req::RenderTmplRequest,
+        resp::{ApiJsonResponse, ApplicationResponse, RenderTmplResponse},
+    },
     http::ApiError,
 };
+use tower::ServiceExt;
 
-use crate::config::rekcod_server_config;
+use crate::app::{engine::render_dynamic_tmpl, manager::get_app_manager};
 
 pub async fn get_app_list() -> Result<Json<ApiJsonResponse<Vec<ApplicationResponse>>>, ApiError> {
-    let config = rekcod_server_config();
-    let (mut dir_entries, _) = walk_dir(&config.get_app_root_path()).await?;
-
-    let mut apps = Vec::new();
-
-    while let Some(entry) = dir_entries.pop() {
-        let id = match entry.file_name() {
-            Some(name) => name.to_string_lossy(),
-            None => continue,
-        };
-
-        let (_, files) = walk_dir(&entry.join("template")).await?;
-        let tmpls = files
-            .into_iter()
-            .filter_map(|f| f.file_name().map(|d| d.to_string_lossy().to_string()))
-            .collect::<Vec<_>>();
-
-        let file = match std::fs::File::open(entry.join("application.yaml")) {
-            Ok(f) => f,
-            Err(_) => continue,
-        };
-        let application: Application = serde_yaml::from_reader(file)?;
-        let app = ApplicationResponse {
-            name: application.name,
-            description: application.description,
-            tmpls: tmpls,
-            id: id.to_string(),
-            version: application.version,
-        };
-        apps.push(app);
-    }
-
+    let apps = get_app_manager()
+        .get_app_list()
+        .await
+        .into_iter()
+        .filter_map(|app| {
+            let info = &app.info.clone()?;
+            Some(ApplicationResponse {
+                name: info.name.clone(),
+                description: info.description.clone(),
+                tmpls: app.tmpls.clone(),
+                id: app.id.clone(),
+                version: info.version.clone(),
+                values: info
+                    .values
+                    .as_ref()
+                    .map(|x| serde_yaml::to_string(x).unwrap_or_default())
+                    .unwrap_or_default(),
+            })
+        })
+        .collect();
     Ok(ApiJsonResponse::success(apps).into())
 }
 
-async fn walk_dir(path: &PathBuf) -> anyhow::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
-    let mut entries = tokio::fs::read_dir(path).await?;
+#[axum::debug_handler]
+pub async fn get_app_template_by_name(
+    Path((name, tmpl)): Path<(String, String)>,
+) -> Result<Response, ApiError> {
+    let app_manager = get_app_manager();
+    let app = match app_manager.get_app(&name).await {
+        Some(app) => app,
+        None => return Err(anyhow::anyhow!("App not found").into()),
+    };
+    let tmpl = match app.tmpls.iter().find(|t| t == &&tmpl) {
+        Some(t) => t,
+        None => return Err(anyhow::anyhow!("Tmpl not found").into()),
+    };
 
-    let mut sub_dirs = Vec::new();
-    let mut sub_files = Vec::new();
-    loop {
-        match entries.next_entry().await {
-            Ok(Some(entry)) => {
-                let entry_path = entry.path();
-                if entry_path.is_dir() {
-                    sub_dirs.push(entry_path);
-                } else {
-                    sub_files.push(entry_path);
-                }
-            }
-            Ok(None) => break,
-            Err(e) => return Err(anyhow::anyhow!(e.to_string()).into()),
-        }
-    }
+    let resp = app
+        .tmpl_service
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/{}", tmpl))
+                .body(Body::empty())?,
+        )
+        .await?;
 
-    Ok((sub_dirs, sub_files))
+    Ok(resp.into_response())
+}
+
+pub async fn render_tmpl(
+    Json(req): Json<RenderTmplRequest>,
+) -> Result<Json<ApiJsonResponse<RenderTmplResponse>>, ApiError> {
+    let ctx: serde_yaml::Value = serde_yaml::from_str(&req.tmpl_values)?;
+    let content = render_dynamic_tmpl(&req.tmpl_context, ctx)?;
+    Ok(ApiJsonResponse::success(RenderTmplResponse { content: content }).into())
 }

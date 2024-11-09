@@ -1,6 +1,7 @@
 use std::{borrow::Cow, path::Path, sync::Arc};
 
 use api::{node_proxy::create_node_proxy_client, socketio::socketio_routers};
+use app::manager::get_app_manager;
 use axum::Router;
 use futures::future::BoxFuture;
 use rekcod_core::{
@@ -58,6 +59,7 @@ pub fn routers() -> Router {
 pub async fn init(_cancel: CancellationToken) -> anyhow::Result<()> {
     init_rekcod_client_config().await?;
     migrate().await?;
+    get_app_manager().init().await?;
     Ok(())
 }
 
