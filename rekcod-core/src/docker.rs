@@ -1,10 +1,14 @@
-use std::sync::Arc;
+use std::{ffi::OsStr, sync::Arc};
 
 use axum::http::HeaderValue;
 use bollard::{BollardRequest, Docker};
+use tokio::process::Command;
 use tracing::info;
 
-use crate::constants::TOEKN_HEADER_KEY;
+use crate::{
+    auth::get_token,
+    constants::{DOCKER_PROXY_PATH, TOEKN_HEADER_KEY},
+};
 
 pub fn rekcod_connect<S>(
     client_addr: Option<S>,
@@ -59,4 +63,74 @@ where
     )?;
 
     Ok(docker)
+}
+
+pub struct DockerCli(Command);
+
+impl DockerCli {
+    pub fn new<I, S>(ip: &str, port: u16, args: I) -> anyhow::Result<Self>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let docker_path = which::which("docker")?;
+        let mut cmd = tokio::process::Command::new(docker_path);
+        cmd.env(
+            "DOCKER_HOST",
+            format!("tcp://{}:{}{}", ip, port, DOCKER_PROXY_PATH),
+        );
+        cmd.env(
+            "DOCKER_CUSTOM_HEADERS",
+            format!("{}={}", TOEKN_HEADER_KEY, get_token()),
+        );
+        cmd.args(args);
+
+        return Ok(DockerCli(cmd));
+    }
+
+    pub async fn run(&mut self) -> anyhow::Result<()> {
+        let mut out = self.0.spawn()?;
+        out.wait().await?;
+        Ok(())
+    }
+}
+
+pub struct DockerComposeCli(Command);
+
+impl DockerComposeCli {
+    pub fn new<I, S>(ip: &str, port: u16, args: I) -> anyhow::Result<Self>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let docker_compose_path = match which::which("docker compose") {
+            Ok(path) => path,
+            Err(_) => match which::which("docker-compose") {
+                Ok(path) => path,
+                Err(_) => {
+                    return Err(anyhow::anyhow!(
+                        "docker compose is not installed, please install it first"
+                    ));
+                }
+            },
+        };
+        let mut cmd = tokio::process::Command::new(docker_compose_path);
+        cmd.env(
+            "DOCKER_HOST",
+            format!("tcp://{}:{}{}", ip, port, DOCKER_PROXY_PATH),
+        );
+        cmd.env(
+            "DOCKER_CUSTOM_HEADERS",
+            format!("{}={}", TOEKN_HEADER_KEY, get_token()),
+        );
+        cmd.args(args);
+
+        return Ok(DockerComposeCli(cmd));
+    }
+
+    pub async fn run(&mut self) -> anyhow::Result<()> {
+        let mut out = self.0.spawn()?;
+        out.wait().await?;
+        Ok(())
+    }
 }

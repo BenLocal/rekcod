@@ -137,6 +137,7 @@ pub struct ApplicationResponse {
     pub description: String,
     pub version: Option<String>,
     pub tmpls: Vec<String>,
+    pub qa: Option<serde_yaml::Value>,
     pub values: String,
 }
 

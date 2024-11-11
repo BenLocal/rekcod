@@ -62,3 +62,12 @@ pub struct RenderTmplRequest {
     pub tmpl_context: String,
     pub tmpl_values: String,
 }
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+#[serde(default)]
+pub struct AppDeployRequest {
+    pub name: String,
+    pub app_name: String,
+    pub node_name: String,
+    pub values: String,
+}

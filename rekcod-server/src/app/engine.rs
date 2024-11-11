@@ -4,7 +4,10 @@ use minijinja::{path_loader, Environment};
 use minijinja_autoreload::AutoReloader;
 use serde::Serialize;
 
-pub struct Engine(AutoReloader);
+pub struct Engine {
+    #[allow(dead_code)]
+    reloader: AutoReloader,
+}
 
 impl Engine {
     pub fn new(template_path: &PathBuf) -> Engine {
@@ -17,11 +20,11 @@ impl Engine {
             Ok(env)
         });
 
-        Engine(reloader)
+        Engine { reloader: reloader }
     }
 
     pub fn render<S: Serialize>(&self, template_name: &str, ctx: S) -> anyhow::Result<String> {
-        let env = self.0.acquire_env()?;
+        let env = self.reloader.acquire_env()?;
         let tmpl = env.get_template(template_name)?;
         tmpl.render(ctx).map_err(|err| err.into())
     }

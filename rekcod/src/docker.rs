@@ -4,12 +4,9 @@ use rekcod_core::{
         req::NodeInfoRequest,
         resp::{ApiJsonResponse, NodeItemResponse},
     },
-    auth::get_token,
     client::get_client,
-    constants::{DOCKER_PROXY_PATH, TOEKN_HEADER_KEY},
+    docker::DockerCli,
 };
-use tokio::process::Command;
-use which::which;
 
 use crate::config::rekcod_cli_config;
 
@@ -23,13 +20,9 @@ pub struct DockerArgs {
     pub sub_command: Vec<String>,
 }
 
-struct DockerCli(Command);
-
 pub(crate) async fn run(args: DockerArgs) -> anyhow::Result<()> {
     let mut docker_cli = inner_run(&args).await?;
-    let mut out = docker_cli.0.spawn()?;
-    out.wait().await?;
-
+    docker_cli.run().await?;
     Ok(())
 }
 
@@ -51,19 +44,7 @@ async fn inner_run(args: &DockerArgs) -> anyhow::Result<DockerCli> {
     }
 
     if let Some(data) = resp.data() {
-        let docker_path = which("docker")?;
-        let mut cmd = tokio::process::Command::new(docker_path);
-        cmd.env(
-            "DOCKER_HOST",
-            format!("tcp://{}:{}{}", data.ip, data.port, DOCKER_PROXY_PATH),
-        );
-        cmd.env(
-            "DOCKER_CUSTOM_HEADERS",
-            format!("{}={}", TOEKN_HEADER_KEY, get_token()),
-        );
-        cmd.args(&args.sub_command);
-
-        return Ok(DockerCli(cmd));
+        return Ok(DockerCli::new(&data.ip, data.port, &args.sub_command)?);
     } else {
         return Err(anyhow::anyhow!("node {} not found", args.node));
     }

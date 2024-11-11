@@ -7,7 +7,7 @@ use axum::{
 use hyper::Request;
 use rekcod_core::{
     api::{
-        req::RenderTmplRequest,
+        req::{AppDeployRequest, RenderTmplRequest},
         resp::{ApiJsonResponse, ApplicationResponse, RenderTmplResponse},
     },
     http::ApiError,
@@ -29,7 +29,8 @@ pub async fn get_app_list() -> Result<Json<ApiJsonResponse<Vec<ApplicationRespon
                 tmpls: app.tmpls.clone(),
                 id: app.id.clone(),
                 version: info.version.clone(),
-                values: info
+                qa: info.qa.clone(),
+                values: app
                     .values
                     .as_ref()
                     .map(|x| serde_yaml::to_string(x).unwrap_or_default())
@@ -67,10 +68,21 @@ pub async fn get_app_template_by_name(
     Ok(resp.into_response())
 }
 
-pub async fn render_tmpl(
+pub async fn dynamic_render_tmpl(
     Json(req): Json<RenderTmplRequest>,
 ) -> Result<Json<ApiJsonResponse<RenderTmplResponse>>, ApiError> {
     let ctx: serde_yaml::Value = serde_yaml::from_str(&req.tmpl_values)?;
     let content = render_dynamic_tmpl(&req.tmpl_context, ctx)?;
     Ok(ApiJsonResponse::success(RenderTmplResponse { content: content }).into())
+}
+
+pub async fn app_deploy(Json(req): Json<AppDeployRequest>) -> Result<Response, ApiError> {
+    let app_manager = get_app_manager();
+    let app = match app_manager.get_app(&req.app_name).await {
+        Some(app) => app,
+        None => return Err(anyhow::anyhow!("App not found").into()),
+    };
+
+    crate::app::manager::deploy(&req.name, &req.node_name, &app).await?;
+    Ok(Response::new(Body::empty()))
 }

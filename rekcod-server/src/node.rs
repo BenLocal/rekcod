@@ -30,6 +30,14 @@ pub struct NodeState {
 }
 
 impl NodeState {
+    pub fn get_node_ip(&self) -> &str {
+        &self.node.ip
+    }
+
+    pub fn get_node_port(&self) -> u16 {
+        self.node.port
+    }
+
     fn create(node: KvsForDb) -> anyhow::Result<Arc<NodeState>> {
         let node = Node::try_from(node)?;
         let docker_client = rekcod_connect(

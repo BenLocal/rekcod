@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use notify::{Error, Event, FsEventWatcher, RecommendedWatcher, RecursiveMode, Watcher as _};
+use notify::{Error, Event, INotifyWatcher, RecommendedWatcher, RecursiveMode, Watcher as _};
 use serde_yaml::Value;
 
 use super::engine::Engine;
@@ -8,7 +8,7 @@ use super::engine::Engine;
 type AppNotifier = tokio::sync::watch::Receiver<()>;
 
 pub struct AppWatcher {
-    _app_watcher: FsEventWatcher,
+    _app_watcher: INotifyWatcher,
     pub tmpl_engine: Engine,
 }
 
@@ -27,7 +27,7 @@ impl AppWatcher {
 
     pub fn watch(
         path: &PathBuf,
-    ) -> anyhow::Result<(FsEventWatcher, tokio::sync::watch::Receiver<()>)> {
+    ) -> anyhow::Result<(INotifyWatcher, tokio::sync::watch::Receiver<()>)> {
         let (tx, rx) = tokio::sync::watch::channel(());
         let mut watcher = RecommendedWatcher::new(
             move |result: Result<Event, Error>| {
@@ -44,7 +44,7 @@ impl AppWatcher {
         Ok((watcher, rx))
     }
 
-    pub fn get_context(&self, template_name: &str, ctx: Value) -> anyhow::Result<String> {
-        self.tmpl_engine.render(template_name, &ctx)
+    pub fn get_context(&self, template_name: &str, ctx: &Value) -> anyhow::Result<String> {
+        self.tmpl_engine.render(template_name, ctx)
     }
 }

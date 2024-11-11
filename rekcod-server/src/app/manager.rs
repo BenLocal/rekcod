@@ -1,11 +1,13 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
+use bollard::container::RemoveContainerOptions;
 use once_cell::sync::Lazy;
-use rekcod_core::application::Application;
+use rekcod_core::{application::Application, docker::DockerComposeCli};
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
 
-use crate::config::rekcod_server_config;
+use crate::{config::rekcod_server_config, db, node::node_manager};
 
 use super::watch::AppWatcher;
 
@@ -25,6 +27,7 @@ pub struct AppState {
     pub info: Option<Application>,
     pub tmpls: Vec<String>,
     pub watcher: AppWatcher,
+    pub values: Option<serde_yaml::Value>,
 }
 
 impl AppManager {
@@ -85,6 +88,7 @@ impl AppManager {
                 info: application,
                 tmpls,
                 watcher: app_watcher,
+                values: None,
             });
 
             let mut app_clone = app.clone();
@@ -141,4 +145,85 @@ async fn walk_dir(path: &PathBuf) -> anyhow::Result<(Vec<PathBuf>, Vec<PathBuf>)
     }
 
     Ok((sub_dirs, sub_files))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct AppDeployInfo {
+    pub name: String,
+    pub node_name: String,
+}
+
+pub async fn deploy(name: &str, node_name: &str, app: &AppState) -> anyhow::Result<()> {
+    let repositry = db::repository().await;
+    let db_app = repositry
+        .kvs
+        .select_one("app", Some(name), None, None)
+        .await?;
+    let (insert, info): (bool, AppDeployInfo) = match db_app {
+        Some(info) => (false, serde_json::from_str(&info.value)?),
+        None => (
+            true,
+            AppDeployInfo {
+                name: name.to_string(),
+                node_name: node_name.to_string(),
+            },
+        ),
+    };
+
+    // deploy
+    // 1. stop old app
+    if !insert {
+        // get old app
+        let old_node = node_manager().get_node(&info.node_name).await?;
+        if let Some(old_node) = old_node {
+            let docker_cli = old_node.docker.clone();
+            let options = Some(RemoveContainerOptions {
+                force: true,
+                ..Default::default()
+            });
+            docker_cli.remove_container(name, options).await?;
+        }
+    }
+    // 2. prepare new app, copy files to node
+    let ctx = &app.values.clone().unwrap_or_default();
+    for tmpl in app.tmpls.iter() {
+        let context = app.watcher.get_context(tmpl, ctx)?;
+        tokio::fs::create_dir_all("./tmp").await?;
+        tokio::fs::write(format!("./tmp/{}", tmpl), &context).await?;
+    }
+
+    // 3. start new app
+    let new_node = node_manager().get_node(node_name).await?;
+    if let Some(new_node) = new_node {
+        let mut docker_compose_cli = DockerComposeCli::new(
+            new_node.get_node_ip(),
+            new_node.get_node_port(),
+            &["up", "-d"],
+        )?;
+        docker_compose_cli.run().await?;
+    }
+
+    if insert {
+        repositry
+            .kvs
+            .insert(&db::kvs::KvsForDb {
+                module: "app".to_string(),
+                key: name.to_string(),
+                value: serde_json::to_string(&info)?,
+                ..Default::default()
+            })
+            .await?;
+    } else {
+        repositry
+            .kvs
+            .update_value(&db::kvs::KvsForDb {
+                module: "app".to_string(),
+                key: name.to_string(),
+                value: serde_json::to_string(&info)?,
+                ..Default::default()
+            })
+            .await?;
+    }
+
+    Ok(())
 }
