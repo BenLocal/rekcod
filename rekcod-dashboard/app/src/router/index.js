@@ -26,6 +26,17 @@ const router = createRouter({
           component: () => import('../views/DockerView.vue'),
           props: route => ({ node_name: route.query.node_name }),
         },
+        {
+          path: 'app',
+          name: 'app',
+          component: () => import('../views/ApplicationView.vue'),
+        },
+        {
+          path: 'app/:id',
+          name: 'app_deploy',
+          component: () => import('../views/ApplicationDeployView.vue'),
+          props: route => ({ id: route.params.id }),
+        },
       ],
     },
   ],

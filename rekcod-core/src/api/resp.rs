@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use tabled::Tabled;
 
+use crate::application::ApplicationQaItem;
+
 #[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ApiJsonResponse<T>
@@ -137,7 +139,7 @@ pub struct ApplicationResponse {
     pub description: String,
     pub version: Option<String>,
     pub tmpls: Vec<String>,
-    pub qa: Option<serde_yaml::Value>,
+    pub qa: Option<Vec<ApplicationQaItem>>,
     pub values: String,
 }
 

@@ -2,7 +2,12 @@ name: this is a test
 version: 1
 description: this is a test1
 icon: test1
-values:
-  out_port: 80
-  in_port: 8080
-  service_name: test
+qa:
+  - id: aaaa
+    name: bbbb
+    label: 输入1
+    type: string
+  - id: bbbb
+    name: bbbb
+    label: 输入2
+    type: string

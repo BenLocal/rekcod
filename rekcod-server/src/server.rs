@@ -16,7 +16,9 @@ use tracing::info;
 
 use crate::{
     api::{
-        application::{app_deploy, dynamic_render_tmpl, get_app_list, get_app_template_by_name},
+        application::{
+            app_deploy, dynamic_render_tmpl, get_app_by_id, get_app_list, get_app_template_by_name,
+        },
         docker::{
             docker_container_delete_by_node, docker_container_info_by_node,
             docker_container_list_by_node, docker_container_logs_by_node,
@@ -73,6 +75,7 @@ pub fn api_routers(ctx: Arc<NodeProxyClient>) -> Router {
         )
         .route("/node/docker/volume/list", post(docker_volume_list_by_node))
         .route("/app/list", post(get_app_list))
+        .route("/app/info/:id", post(get_app_by_id))
         .route(
             "/app/tmpl/content/:name/*tmpl",
             get(get_app_template_by_name),

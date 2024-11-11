@@ -44,6 +44,11 @@ const menus = [
     icon: 'Grid',
     title: '节点',
   },
+  {
+    path: '/app',
+    icon: 'Shop',
+    title: '应用',
+  },
 ]
 
 function getDefaultActive() {

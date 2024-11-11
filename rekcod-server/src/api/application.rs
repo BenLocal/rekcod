@@ -41,6 +41,32 @@ pub async fn get_app_list() -> Result<Json<ApiJsonResponse<Vec<ApplicationRespon
     Ok(ApiJsonResponse::success(apps).into())
 }
 
+pub async fn get_app_by_id(
+    Path(id): Path<String>,
+) -> Result<Json<ApiJsonResponse<ApplicationResponse>>, ApiError> {
+    get_app_manager()
+        .get_app(&id)
+        .await
+        .map(|app| {
+            let info = &app.info.clone().unwrap();
+            let resp = ApplicationResponse {
+                name: info.name.clone(),
+                description: info.description.clone(),
+                tmpls: app.tmpls.clone(),
+                id: app.id.clone(),
+                version: info.version.clone(),
+                qa: info.qa.clone(),
+                values: app
+                    .values
+                    .as_ref()
+                    .map(|x| serde_yaml::to_string(x).unwrap_or_default())
+                    .unwrap_or_default(),
+            };
+            ApiJsonResponse::success(ApplicationResponse::from(resp)).into()
+        })
+        .ok_or(anyhow::anyhow!("App not found").into())
+}
+
 #[axum::debug_handler]
 pub async fn get_app_template_by_name(
     Path((name, tmpl)): Path<(String, String)>,

@@ -1,14 +1,19 @@
 use std::path::PathBuf;
 
-use notify::{Error, Event, INotifyWatcher, RecommendedWatcher, RecursiveMode, Watcher as _};
+use notify::{Error, Event, RecommendedWatcher, RecursiveMode, Watcher as _};
 use serde_yaml::Value;
 
 use super::engine::Engine;
 
 type AppNotifier = tokio::sync::watch::Receiver<()>;
 
+#[cfg(any(target_os = "linux", target_os = "android"))]
+type AppWatcherType = notify::INotifyWatcher;
+#[cfg(target_os = "macos")]
+type AppWatcherType = notify::FsEventWatcher;
+
 pub struct AppWatcher {
-    _app_watcher: INotifyWatcher,
+    _app_watcher: AppWatcherType,
     pub tmpl_engine: Engine,
 }
 
@@ -27,7 +32,7 @@ impl AppWatcher {
 
     pub fn watch(
         path: &PathBuf,
-    ) -> anyhow::Result<(INotifyWatcher, tokio::sync::watch::Receiver<()>)> {
+    ) -> anyhow::Result<(AppWatcherType, tokio::sync::watch::Receiver<()>)> {
         let (tx, rx) = tokio::sync::watch::channel(());
         let mut watcher = RecommendedWatcher::new(
             move |result: Result<Event, Error>| {
