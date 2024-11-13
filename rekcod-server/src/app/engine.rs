@@ -8,7 +8,6 @@ use minijinja::{
 };
 use minijinja_autoreload::AutoReloader;
 use serde::Serialize;
-use tokio::runtime::Handle;
 
 use crate::node::node_manager;
 
@@ -31,29 +30,27 @@ impl Engine {
         Engine { reloader: reloader }
     }
 
-    pub fn render<S: Serialize>(
+    pub async fn render<S: Serialize>(
         &self,
         template_name: &str,
         value: S,
-        rt: tokio::runtime::Handle,
     ) -> anyhow::Result<String> {
         let env = self.reloader.acquire_env()?;
         let tmpl = env.get_template(template_name)?;
         let ec = context! {
-            Docker => minijinja::value::Value::from_object(DockerContext::new(rt)),
+            Docker => minijinja::value::Value::from_object(DockerContext),
             Value => value
         };
         tmpl.render(ec).map_err(|err| err.into())
     }
 }
 
-pub fn render_dynamic_tmpl<S: Serialize>(
+pub async fn render_dynamic_tmpl<S: Serialize>(
     template_content: &str,
     value: S,
-    rt: tokio::runtime::Handle,
 ) -> anyhow::Result<String> {
     let ec = context! {
-        Docker => minijinja::value::Value::from_object(DockerContext::new(rt)),
+        Docker => minijinja::value::Value::from_object(DockerContext),
         Value => value
     };
 
@@ -61,15 +58,9 @@ pub fn render_dynamic_tmpl<S: Serialize>(
 }
 
 #[derive(Debug)]
-struct DockerContext {
-    rt: tokio::runtime::Handle,
-}
+struct DockerContext;
 
 impl DockerContext {
-    fn new(rt: tokio::runtime::Handle) -> DockerContext {
-        DockerContext { rt: rt }
-    }
-
     async fn ps_inspect(self: Arc<Self>, key: Arc<str>) -> Option<minijinja::value::Value> {
         let nodes = node_manager().get_all_nodes(false).await.unwrap();
 
@@ -99,9 +90,9 @@ impl Object for DockerContext {
     ) -> Result<minijinja::value::Value, Error> {
         let (key,) = from_args(args)?;
         match method {
-            "ps_inspect" => Ok(minijinja::value::Value::from(
-                self.rt.block_on(self.clone().ps_inspect(key)),
-            )),
+            "ps_inspect" => Ok(minijinja::value::Value::from(tokio::task::block_in_place(
+                || tokio::runtime::Handle::current().block_on(self.clone().ps_inspect(key)),
+            ))),
             _ => Err(Error::from(minijinja::ErrorKind::UnknownMethod)),
         }
     }

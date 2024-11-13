@@ -35,3 +35,4 @@ minijinja-autoreload = { workspace = true }
 async-walkdir = { workspace = true }
 serde_yaml = { workspace = true }
 notify = { workspace = true }
+futures-executor = { workspace = true }

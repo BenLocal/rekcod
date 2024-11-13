@@ -139,16 +139,19 @@ pub(crate) async fn sys_monitor(cancel: CancellationToken) -> anyhow::Result<()>
                 sys_info.mem_free = s.free_memory();
                 sys_info.mem_used = s.used_memory();
 
-                disks.refresh_list();
-                sys_info.disks = disks.list().iter().map(|x| {
-                    SysDisk {
-                        name:x.name().to_string_lossy().to_string(),
-                        total: x.total_space(),
-                        free: x.available_space(),
-                        mount: x.mount_point().to_string_lossy().to_string(),
-                        removable: x.is_removable()
-                    }
-                }).collect::<Vec<_>>();
+                if cfg!(target_os = "linux") {
+                    disks.refresh_list();
+                    sys_info.disks = disks.list().iter().map(|x| {
+                        SysDisk {
+                            name:x.name().to_string_lossy().to_string(),
+                            total: x.total_space(),
+                            free: x.available_space(),
+                            mount: x.mount_point().to_string_lossy().to_string(),
+                            removable: x.is_removable()
+                        }
+                    }).collect::<Vec<_>>();
+                }
+
 
                 networks.refresh_list();
                 sys_info.networks = networks.list().iter().map(|(x, d)| {

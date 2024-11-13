@@ -201,9 +201,7 @@ pub async fn deploy(req: &AppDeployRequest, app: &AppState) -> anyhow::Result<()
 
     let mut maps = HashMap::new();
     for tmpl in app.tmpls.iter() {
-        let context = app
-            .watcher
-            .get_context(tmpl, &ctx, tokio::runtime::Handle::current())?;
+        let context = app.watcher.get_context(tmpl, &ctx).await?;
         maps.insert(tmpl.clone(), context);
     }
 

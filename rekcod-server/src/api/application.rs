@@ -90,7 +90,7 @@ pub async fn dynamic_render_tmpl(
     Json(req): Json<RenderTmplRequest>,
 ) -> Result<Json<ApiJsonResponse<RenderTmplResponse>>, ApiError> {
     let ctx: serde_yaml::Value = serde_yaml::from_str(&req.tmpl_values)?;
-    let content = render_dynamic_tmpl(&req.tmpl_context, ctx, tokio::runtime::Handle::current())?;
+    let content = render_dynamic_tmpl(&req.tmpl_context, ctx).await?;
     Ok(ApiJsonResponse::success(RenderTmplResponse { content: content }).into())
 }
 
