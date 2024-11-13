@@ -1,14 +1,17 @@
-use std::{ffi::OsStr, sync::Arc};
+use std::{ffi::OsStr, process::Stdio, sync::Arc};
 
 use axum::http::HeaderValue;
 use bollard::{BollardRequest, Docker};
-use tokio::process::Command;
+use once_cell::sync::Lazy;
+use tokio::{io::AsyncWriteExt as _, process::Command};
 use tracing::info;
 
 use crate::{
     auth::get_token,
     constants::{DOCKER_PROXY_PATH, TOEKN_HEADER_KEY},
 };
+
+static DOCKER_LOCAL: Lazy<Docker> = Lazy::new(|| Docker::connect_with_defaults().unwrap());
 
 pub fn rekcod_connect<S>(
     client_addr: Option<S>,
@@ -63,6 +66,10 @@ where
     )?;
 
     Ok(docker)
+}
+
+pub fn local_connect() -> &'static Docker {
+    &DOCKER_LOCAL
 }
 
 pub struct DockerCli(Command);
@@ -131,6 +138,17 @@ impl DockerComposeCli {
     pub async fn run(&mut self) -> anyhow::Result<()> {
         let mut out = self.0.spawn()?;
         out.wait().await?;
+        Ok(())
+    }
+
+    pub async fn run_cache(&mut self, docker_compose_file: &str) -> anyhow::Result<()> {
+        let mut child = self.0.stdin(Stdio::piped()).spawn()?;
+        let stdin = match child.stdin.as_mut() {
+            Some(stdin) => stdin,
+            None => return Err(anyhow::anyhow!("stdin is not available")),
+        };
+        stdin.write_all(docker_compose_file.as_bytes()).await?;
+        child.wait().await?;
         Ok(())
     }
 }

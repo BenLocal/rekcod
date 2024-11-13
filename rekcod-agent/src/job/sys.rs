@@ -2,7 +2,7 @@ use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 use rekcod_core::api::resp::{SystemDiskInfo, SystemInfoResponse, SystemNetworkInfo};
-use sysinfo::System;
+use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 use tokio_util::sync::CancellationToken;
 
 static SYS_INFO: Lazy<Mutex<SysInfo>> = Lazy::new(|| Mutex::new(SysInfo::default()));
@@ -115,14 +115,18 @@ impl Into<SystemNetworkInfo> for &SysNetwork {
 
 pub(crate) async fn sys_monitor(cancel: CancellationToken) -> anyhow::Result<()> {
     let mut s = sysinfo::System::new();
-
+    let mut disks = sysinfo::Disks::new();
+    let mut networks = sysinfo::Networks::new();
+    let rk = RefreshKind::new()
+        .with_cpu(CpuRefreshKind::everything())
+        .with_memory(MemoryRefreshKind::everything());
     loop {
         tokio::select! {
             _ = cancel.cancelled() => {
                 break;
             }
             _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
-                s.refresh_all();
+                s.refresh_specifics(rk);
 
                 let mut sys_info = SYS_INFO.lock().unwrap();
                 // cpu
@@ -135,22 +139,18 @@ pub(crate) async fn sys_monitor(cancel: CancellationToken) -> anyhow::Result<()>
                 sys_info.mem_free = s.free_memory();
                 sys_info.mem_used = s.used_memory();
 
-                // disk
-                if !cfg!(target_os = "macos") {
-                    let disks = sysinfo::Disks::new_with_refreshed_list();
-                    sys_info.disks = disks.list().iter().map(|x| {
-                        SysDisk {
-                            name:x.name().to_string_lossy().to_string(),
-                            total: x.total_space(),
-                            free: x.available_space(),
-                            mount: x.mount_point().to_string_lossy().to_string(),
-                            removable: x.is_removable()
-                        }
-                    }).collect::<Vec<_>>();
-                }
+                disks.refresh_list();
+                sys_info.disks = disks.list().iter().map(|x| {
+                    SysDisk {
+                        name:x.name().to_string_lossy().to_string(),
+                        total: x.total_space(),
+                        free: x.available_space(),
+                        mount: x.mount_point().to_string_lossy().to_string(),
+                        removable: x.is_removable()
+                    }
+                }).collect::<Vec<_>>();
 
-                // network
-                let networks = sysinfo::Networks::new_with_refreshed_list();
+                networks.refresh_list();
                 sys_info.networks = networks.list().iter().map(|(x, d)| {
                     SysNetwork {
                         name: x.to_string(),

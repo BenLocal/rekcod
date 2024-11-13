@@ -151,7 +151,7 @@ async fn run_main() -> anyhow::Result<()> {
         tokio::spawn(async move {
             let cancel_clone_end = cancel_clone.clone();
             if let Err(e) = rekcod_server::init(cancel_clone).await {
-                println!("server init error: {}", e);
+                error!("server init error: {}", e);
                 cancel_clone_end.cancel();
             }
         });

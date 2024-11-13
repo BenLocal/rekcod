@@ -69,5 +69,13 @@ pub struct AppDeployRequest {
     pub name: String,
     pub app_name: String,
     pub node_name: String,
-    pub values: String,
+    pub project: Option<String>,
+    pub values: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+#[serde(default)]
+pub struct DockerImagePullAutoRequest {
+    pub node_name: String,
+    pub image_name: String,
 }

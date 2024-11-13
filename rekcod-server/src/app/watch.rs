@@ -49,7 +49,12 @@ impl AppWatcher {
         Ok((watcher, rx))
     }
 
-    pub fn get_context(&self, template_name: &str, ctx: &Value) -> anyhow::Result<String> {
-        self.tmpl_engine.render(template_name, ctx)
+    pub fn get_context(
+        &self,
+        template_name: &str,
+        ctx: &Value,
+        rt: tokio::runtime::Handle,
+    ) -> anyhow::Result<String> {
+        self.tmpl_engine.render(template_name, ctx, rt)
     }
 }

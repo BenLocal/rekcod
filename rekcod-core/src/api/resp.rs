@@ -140,7 +140,7 @@ pub struct ApplicationResponse {
     pub version: Option<String>,
     pub tmpls: Vec<String>,
     pub qa: Option<Vec<ApplicationQaItem>>,
-    pub values: String,
+    pub values: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]

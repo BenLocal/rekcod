@@ -22,7 +22,10 @@ use bollard::{
 use futures::{Stream, StreamExt as _};
 use hyper::{header, StatusCode};
 use rekcod_core::{
-    api::{req::NodeDockerQueryRequest, resp::ApiJsonResponse},
+    api::{
+        req::{DockerImagePullAutoRequest, NodeDockerQueryRequest},
+        resp::ApiJsonResponse,
+    },
     http::ApiError,
 };
 use tracing::info;
@@ -171,20 +174,21 @@ pub async fn docker_volume_list_by_node(
 }
 
 pub async fn docker_image_pull_auto(
-    Path((node_name, image_name)): Path<(String, String)>,
+    Json(req): Json<DockerImagePullAutoRequest>,
 ) -> Result<Response, ApiError> {
-    info!("docker image pull: {}", node_name);
+    info!("docker image pull: {}", &req.node_name);
 
     // first need check image exists
     // if some docker server has the image, will use it
     // if not, will pull from docker hub or registry server
     let all = node_manager().get_all_nodes(false).await?;
-    let n = node_manager().get_node(&node_name).await?;
-    let src = select_has_docker_image_node(all, &image_name, &node_name).await;
+    let n = node_manager().get_node(&req.node_name).await?;
+    let src = select_has_docker_image_node(all, &req.image_name, &req.node_name).await;
     if let Some(n) = n {
         if let Some(src) = src {
             let result =
-                docker_pull_image_from_other_server(&n.docker, &image_name, &src.docker).await?;
+                docker_pull_image_from_other_server(&n.docker, &req.image_name, &src.docker)
+                    .await?;
             let body = axum::body::Body::from_stream(result);
             return Ok(Response::builder()
                 .status(StatusCode::OK)
@@ -192,9 +196,8 @@ pub async fn docker_image_pull_auto(
                 .body(body)?);
         }
 
-        let image_name = image_name.clone();
         let docker = Arc::clone(&n).docker.clone();
-        let result = docker_pull_image_from_hub(docker, image_name).await?;
+        let result = docker_pull_image_from_hub(docker, req.image_name.clone()).await?;
         let body = axum::body::Body::from_stream(result);
         return Ok(Response::builder()
             .status(StatusCode::OK)

@@ -21,6 +21,8 @@ tracing = { workspace = true }
 local-ip-address = { workspace = true }
 sysinfo = { workspace = true }
 pin-project-lite = { workspace = true }
+bollard = { workspace = true, features = ["chrono"] }
+chrono = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 hyperlocal = { workspace = true }

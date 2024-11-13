@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use bollard::container::RemoveContainerOptions;
 use once_cell::sync::Lazy;
-use rekcod_core::{application::Application, docker::DockerComposeCli};
+use rekcod_core::{api::req::AppDeployRequest, application::Application, docker::DockerComposeCli};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
@@ -27,7 +27,6 @@ pub struct AppState {
     pub info: Option<Application>,
     pub tmpls: Vec<String>,
     pub watcher: AppWatcher,
-    pub values: Option<serde_yaml::Value>,
 }
 
 impl AppManager {
@@ -52,7 +51,12 @@ impl AppManager {
 
     pub async fn init(&self) -> anyhow::Result<()> {
         let config = rekcod_server_config();
-        let (mut dir_entries, _) = walk_dir(&config.get_app_root_path()).await?;
+        let get_app_root_path = config.get_app_root_path();
+        if !get_app_root_path.exists() {
+            tokio::fs::create_dir_all(&get_app_root_path).await?;
+        }
+
+        let (mut dir_entries, _) = walk_dir(&get_app_root_path).await?;
 
         let mut apps = self.app_list.write().await;
 
@@ -88,7 +92,6 @@ impl AppManager {
                 info: application,
                 tmpls,
                 watcher: app_watcher,
-                values: None,
             });
 
             let mut app_clone = app.clone();
@@ -151,56 +154,77 @@ async fn walk_dir(path: &PathBuf) -> anyhow::Result<(Vec<PathBuf>, Vec<PathBuf>)
 struct AppDeployInfo {
     pub name: String,
     pub node_name: String,
+    pub values: Option<String>,
+    pub project: Option<String>,
 }
 
-pub async fn deploy(name: &str, node_name: &str, app: &AppState) -> anyhow::Result<()> {
+pub async fn deploy(req: &AppDeployRequest, app: &AppState) -> anyhow::Result<()> {
+    let name = &req.name;
+    let node_name = &req.node_name;
+    let values = req.values.as_deref();
     let repositry = db::repository().await;
     let db_app = repositry
         .kvs
         .select_one("app", Some(name), None, None)
         .await?;
-    let (insert, info): (bool, AppDeployInfo) = match db_app {
+    let (insert, mut info): (bool, AppDeployInfo) = match db_app {
         Some(info) => (false, serde_json::from_str(&info.value)?),
         None => (
             true,
             AppDeployInfo {
                 name: name.to_string(),
                 node_name: node_name.to_string(),
+                values: values.map(|v| v.to_string()),
+                project: req.project.clone(),
             },
         ),
     };
 
     // deploy
     // 1. stop old app
-    if !insert {
+    if !insert && &info.node_name != node_name {
         // get old app
         let old_node = node_manager().get_node(&info.node_name).await?;
         if let Some(old_node) = old_node {
-            let docker_cli = old_node.docker.clone();
             let options = Some(RemoveContainerOptions {
                 force: true,
                 ..Default::default()
             });
-            docker_cli.remove_container(name, options).await?;
+            let _ = &old_node.docker.remove_container(name, options).await;
         }
     }
     // 2. prepare new app, copy files to node
-    let ctx = &app.values.clone().unwrap_or_default();
+    let ctx: serde_yaml::Value = match values {
+        Some(v) => serde_yaml::from_str(&v)?,
+        None => serde_yaml::Value::Null,
+    };
+
+    let mut maps = HashMap::new();
     for tmpl in app.tmpls.iter() {
-        let context = app.watcher.get_context(tmpl, ctx)?;
-        tokio::fs::create_dir_all("./tmp").await?;
-        tokio::fs::write(format!("./tmp/{}", tmpl), &context).await?;
+        let context = app
+            .watcher
+            .get_context(tmpl, &ctx, tokio::runtime::Handle::current())?;
+        maps.insert(tmpl.clone(), context);
     }
 
     // 3. start new app
     let new_node = node_manager().get_node(node_name).await?;
+    let mut cli_args = Vec::new();
+    // if let Some(project) = &req.project {
+    //     cli_args.push("--project");
+    //     cli_args.push(project);
+    // }
+
+    cli_args.push("-f");
+    cli_args.push("-");
+    cli_args.push("up");
+    cli_args.push("-d");
+
     if let Some(new_node) = new_node {
-        let mut docker_compose_cli = DockerComposeCli::new(
-            new_node.get_node_ip(),
-            new_node.get_node_port(),
-            &["up", "-d"],
-        )?;
-        docker_compose_cli.run().await?;
+        let mut docker_compose_cli =
+            DockerComposeCli::new(new_node.get_node_ip(), new_node.get_node_port(), &cli_args)?;
+        let c: &String = maps.get("docker-compose.yaml").unwrap();
+        docker_compose_cli.run_cache(c).await?;
     }
 
     if insert {
@@ -214,6 +238,9 @@ pub async fn deploy(name: &str, node_name: &str, app: &AppState) -> anyhow::Resu
             })
             .await?;
     } else {
+        info.node_name = node_name.to_string();
+        info.values = values.map(|v| v.to_string());
+        info.project = req.project.clone();
         repositry
             .kvs
             .update_value(&db::kvs::KvsForDb {

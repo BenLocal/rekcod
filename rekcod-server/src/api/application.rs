@@ -30,11 +30,7 @@ pub async fn get_app_list() -> Result<Json<ApiJsonResponse<Vec<ApplicationRespon
                 id: app.id.clone(),
                 version: info.version.clone(),
                 qa: info.qa.clone(),
-                values: app
-                    .values
-                    .as_ref()
-                    .map(|x| serde_yaml::to_string(x).unwrap_or_default())
-                    .unwrap_or_default(),
+                values: None,
             })
         })
         .collect();
@@ -56,11 +52,7 @@ pub async fn get_app_by_id(
                 id: app.id.clone(),
                 version: info.version.clone(),
                 qa: info.qa.clone(),
-                values: app
-                    .values
-                    .as_ref()
-                    .map(|x| serde_yaml::to_string(x).unwrap_or_default())
-                    .unwrap_or_default(),
+                values: None,
             };
             ApiJsonResponse::success(ApplicationResponse::from(resp)).into()
         })
@@ -98,7 +90,7 @@ pub async fn dynamic_render_tmpl(
     Json(req): Json<RenderTmplRequest>,
 ) -> Result<Json<ApiJsonResponse<RenderTmplResponse>>, ApiError> {
     let ctx: serde_yaml::Value = serde_yaml::from_str(&req.tmpl_values)?;
-    let content = render_dynamic_tmpl(&req.tmpl_context, ctx)?;
+    let content = render_dynamic_tmpl(&req.tmpl_context, ctx, tokio::runtime::Handle::current())?;
     Ok(ApiJsonResponse::success(RenderTmplResponse { content: content }).into())
 }
 
@@ -109,6 +101,6 @@ pub async fn app_deploy(Json(req): Json<AppDeployRequest>) -> Result<Response, A
         None => return Err(anyhow::anyhow!("App not found").into()),
     };
 
-    crate::app::manager::deploy(&req.name, &req.node_name, &app).await?;
+    crate::app::manager::deploy(&req, &app).await?;
     Ok(Response::new(Body::empty()))
 }

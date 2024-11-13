@@ -11,7 +11,7 @@ use axum::{
     Router,
 };
 
-use job::{register, sys};
+use job::{events::docker_event_monitor, register, sys};
 use pin_project_lite::pin_project;
 use rekcod_core::constants::{DOCKER_PROXY_PATH, REKCOD_AGENT_PREFIX_PATH};
 
@@ -121,6 +121,9 @@ pub async fn init(cancel: CancellationToken) -> anyhow::Result<()> {
             cancel_clone_end.cancel();
         }
     });
+
+    let cancel_clone = cancel.clone();
+    tokio::spawn(async { docker_event_monitor(cancel_clone).await });
 
     Ok(())
 }

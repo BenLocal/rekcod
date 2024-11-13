@@ -24,5 +24,3 @@ release: build
   just pkg x86_64-unknown-linux-musl
   just pkg aarch64-unknown-linux-musl
 
-ins:
-  cd ./release/x86_64-unknown-linux-musl && chmod +x install.sh && ./install.sh server

@@ -1,7 +1,0 @@
-version: '3'
-
-services:
-  test1:
-    image: busybox:latest
-    container_name: test1
-    command: /bin/sh
