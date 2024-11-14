@@ -82,6 +82,12 @@ const api = {
   async getAppInfo(id) {
     return axios.post(`/api/app/info/${id}`)
   },
+  async getEnv() {
+    return axios.post('/api/env/list')
+  },
+  async saveEnv(data) {
+    return axios.post('/api/env/set', data)
+  },
 }
 
 export default api

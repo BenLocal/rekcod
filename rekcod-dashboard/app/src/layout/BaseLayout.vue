@@ -49,6 +49,11 @@ const menus = [
     icon: 'Shop',
     title: '应用',
   },
+  {
+    path: '/env',
+    icon: 'List',
+    title: '环境变量',
+  },
 ]
 
 function getDefaultActive() {

@@ -26,6 +26,7 @@ use crate::{
             docker_container_stop_by_node, docker_image_list_by_node, docker_image_pull_auto,
             docker_info_by_node, docker_network_list_by_node, docker_volume_list_by_node,
         },
+        env::{get_global_env, set_global_env},
         node::{info_node, list_node},
         node_proxy::{node_proxy_handler, NodeProxyClient},
     },
@@ -82,6 +83,8 @@ pub fn api_routers(ctx: Arc<NodeProxyClient>) -> Router {
         )
         .route("/app/tmpl/render", post(dynamic_render_tmpl))
         .route("/app/deploy", post(app_deploy))
+        .route("/env/list", post(get_global_env))
+        .route("/env/set", post(set_global_env))
         .with_state(ctx)
 }
 

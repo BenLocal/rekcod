@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -78,4 +80,9 @@ pub struct AppDeployRequest {
 pub struct DockerImagePullAutoRequest {
     pub node_name: String,
     pub image_name: String,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct EnvRequest {
+    pub values: String,
 }

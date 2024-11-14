@@ -37,6 +37,11 @@ const router = createRouter({
           component: () => import('../views/ApplicationDeployView.vue'),
           props: route => ({ id: route.params.id }),
         },
+        {
+          path: 'env',
+          name: 'env',
+          component: () => import('../views/EnvironmentView.vue'),
+        },
       ],
     },
   ],

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use tabled::Tabled;
 
@@ -146,4 +148,9 @@ pub struct ApplicationResponse {
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct RenderTmplResponse {
     pub content: String,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct EnvResponse {
+    pub values: String,
 }

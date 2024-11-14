@@ -44,6 +44,25 @@ impl DbSet<'static, Sqlite, SqliteRow, Kvs> {
         Ok(())
     }
 
+    pub async fn insert_or_update_value(&self, kvs: &KvsForDb) -> anyhow::Result<()> {
+        let _ = sqlx::query(
+            r#"INSERT INTO kvs (module, key, sub_key, third_key, value) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (module, key, sub_key, third_key) DO
+            UPDATE SET value = EXCLUDED.value
+            "#,
+        )
+        .bind(kvs.module.as_str())
+        .bind(kvs.key.as_str())
+        .bind(kvs.sub_key.as_str())
+        .bind(kvs.third_key.as_str())
+        .bind(kvs.value.as_str())
+        .execute(self.pool.as_ref())
+        .await?
+        .rows_affected();
+
+        Ok(())
+    }
+
     pub async fn select_one(
         &self,
         module: &str,
