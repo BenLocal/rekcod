@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use axum::{debug_handler, Json};
 use rekcod_core::{
     api::{
@@ -9,7 +7,7 @@ use rekcod_core::{
     http::ApiError,
 };
 
-use crate::db;
+use crate::{db, env::env_manager};
 
 pub async fn get_global_env() -> Result<Json<ApiJsonResponse<EnvResponse>>, ApiError> {
     let db = db::repository().await;
@@ -24,6 +22,10 @@ pub async fn set_global_env(
     Json(req): Json<EnvRequest>,
 ) -> Result<Json<ApiJsonResponse<()>>, ApiError> {
     let db = db::repository().await;
+    if !req.values.is_empty() {
+        env_manager().set(&req.values).await?;
+    }
+
     db.kvs
         .insert_or_update_value(&db::kvs::KvsForDb {
             module: "env".to_string(),

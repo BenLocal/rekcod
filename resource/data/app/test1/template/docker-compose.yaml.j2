@@ -1,0 +1,20 @@
+version: "3"
+
+services:
+  test1:
+    image: busybox:1.36
+    container_name: test1
+    ports:
+      - "{{ Value.out_port }}:{{ Value.in_port }}"
+    environment:
+      - PORT=8080
+    command: "{{ Value.cmd }}"
+    labels:
+    # - aaaaa=bbb
+   {#   - com.host.docker.node={{ Docker.ps_inspect('web1') }} #}
+      - com.host.env.aaa={{ Env.aaaaa }}
+    {%- if Env.bbb %}
+      - com.host.env.bbb={{ Env.bbb|default('shiben') }}
+    {%- endif %}
+      - com.host.env.ccc={{ Env.ccc }}
+      - aaaaa=${saaaa-a}

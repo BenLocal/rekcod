@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -73,6 +71,7 @@ pub struct AppDeployRequest {
     pub node_name: String,
     pub project: Option<String>,
     pub values: Option<String>,
+    pub build: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]

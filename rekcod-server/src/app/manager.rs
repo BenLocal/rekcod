@@ -22,11 +22,22 @@ pub struct AppManager {
 }
 
 pub struct AppState {
+    root_path: PathBuf,
     pub tmpl_service: ServeDir,
     pub id: String,
     pub info: Option<Application>,
     pub tmpls: Vec<String>,
     pub watcher: AppWatcher,
+}
+
+impl AppState {
+    pub fn get_app_root_path(&self) -> &PathBuf {
+        &self.root_path
+    }
+
+    pub fn get_default_project_path(&self) -> PathBuf {
+        self.get_app_root_path().join("project")
+    }
 }
 
 impl AppManager {
@@ -92,6 +103,7 @@ impl AppManager {
                 info: application,
                 tmpls,
                 watcher: app_watcher,
+                root_path: entry.as_path().to_path_buf(),
             });
 
             let mut app_clone = app.clone();
@@ -156,6 +168,7 @@ struct AppDeployInfo {
     pub node_name: String,
     pub values: Option<String>,
     pub project: Option<String>,
+    pub build: Option<bool>,
 }
 
 pub async fn deploy(req: &AppDeployRequest, app: &AppState) -> anyhow::Result<()> {
@@ -176,6 +189,7 @@ pub async fn deploy(req: &AppDeployRequest, app: &AppState) -> anyhow::Result<()
                 node_name: node_name.to_string(),
                 values: values.map(|v| v.to_string()),
                 project: req.project.clone(),
+                build: req.build,
             },
         ),
     };
@@ -208,21 +222,38 @@ pub async fn deploy(req: &AppDeployRequest, app: &AppState) -> anyhow::Result<()
     // 3. start new app
     let new_node = node_manager().get_node(node_name).await?;
     let mut cli_args = Vec::new();
-    // if let Some(project) = &req.project {
-    //     cli_args.push("--project");
-    //     cli_args.push(project);
-    // }
+    let project_dir = match &req.project {
+        Some(p) => Some(p.to_string()),
+        None => {
+            let project_dir = app.get_default_project_path();
+            if project_dir.exists() {
+                project_dir.to_str().map(|d| d.to_string())
+            } else {
+                None
+            }
+        }
+    };
+
+    if let Some(project_dir) = project_dir.as_deref() {
+        cli_args.push("--project-directory");
+        cli_args.push(project_dir);
+    }
 
     cli_args.push("-f");
     cli_args.push("-");
     cli_args.push("up");
     cli_args.push("-d");
 
+    if let Some(true) = req.build {
+        cli_args.push("--build");
+    }
+
     if let Some(new_node) = new_node {
         let mut docker_compose_cli =
             DockerComposeCli::new(new_node.get_node_ip(), new_node.get_node_port(), &cli_args)?;
-        let c: &String = maps.get("docker-compose.yaml").unwrap();
-        docker_compose_cli.run_cache(c).await?;
+        if let Some(c) = get_docker_compose_file(&maps) {
+            docker_compose_cli.run_cache(c).await?;
+        }
     }
 
     if insert {
@@ -251,4 +282,13 @@ pub async fn deploy(req: &AppDeployRequest, app: &AppState) -> anyhow::Result<()
     }
 
     Ok(())
+}
+
+fn get_docker_compose_file(map: &HashMap<String, String>) -> Option<&str> {
+    let tmp = map
+        .iter()
+        .find(|(k, v)| k.starts_with("docker-compose") && !v.is_empty())
+        .map(|x| x.1.as_str());
+    tracing::debug!("get_docker_compose_file: {:#?}", tmp);
+    tmp
 }

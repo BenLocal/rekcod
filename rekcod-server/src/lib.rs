@@ -24,6 +24,7 @@ mod api;
 mod app;
 pub mod config;
 mod db;
+mod env;
 mod node;
 mod server;
 

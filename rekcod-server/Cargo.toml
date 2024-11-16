@@ -30,7 +30,7 @@ socketioxide = { workspace = true }
 url = { workspace = true }
 tower-http = { workspace = true, features = ["cors", "fs", "trace"] }
 tower = { workspace = true }
-minijinja = { workspace = true, features = ["loader"] }
+minijinja = { workspace = true, features = ["loader", "custom_syntax"] }
 minijinja-autoreload = { workspace = true }
 async-walkdir = { workspace = true }
 serde_yaml = { workspace = true }
