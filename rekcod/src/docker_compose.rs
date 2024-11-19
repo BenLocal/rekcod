@@ -48,6 +48,7 @@ async fn inner_run(args: &DockerArgs) -> anyhow::Result<DockerComposeCli> {
             &data.ip,
             data.port,
             &args.sub_command,
+            None::<String>,
         )?);
     } else {
         return Err(anyhow::anyhow!("node {} not found", args.node));

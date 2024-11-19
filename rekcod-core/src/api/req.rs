@@ -85,3 +85,8 @@ pub struct DockerImagePullAutoRequest {
 pub struct EnvRequest {
     pub values: String,
 }
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct AppDeployDeleteRequest {
+    pub app_name: String,
+}

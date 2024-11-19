@@ -135,37 +135,29 @@ fn main() -> anyhow::Result<()> {
 #[tokio::main]
 async fn run_main() -> anyhow::Result<()> {
     let cancel = CancellationToken::new();
+    macro_rules! start_spawn {
+        ($run: expr) => {
+            let cancel_clone = cancel.clone();
+            tokio::spawn(async move {
+                let ccc = cancel_clone.clone();
+                if let Err(e) = $run(cancel_clone).await {
+                    error!("{} error: {}", stringify!($run), e);
+                    ccc.cancel();
+                }
+            });
+        };
+    }
 
-    let cancel_clone = cancel.clone();
-    tokio::spawn(async move {
-        let ccc = cancel_clone.clone();
-        if let Err(e) = api::start(cancel_clone).await {
-            error!("api server error: {}", e);
-            ccc.cancel();
-        }
-    });
+    start_spawn!(api::start);
 
     let config = config::rekcod_config();
+    // init server
     if config.server_type == config::RekcodServerType::Server {
-        let cancel_clone = cancel.clone();
-        tokio::spawn(async move {
-            let cancel_clone_end = cancel_clone.clone();
-            if let Err(e) = rekcod_server::init(cancel_clone).await {
-                error!("server init error: {}", e);
-                cancel_clone_end.cancel();
-            }
-        });
+        start_spawn!(rekcod_server::init);
     }
 
     // init agent after server
-    let cancel_clone = cancel.clone();
-    tokio::spawn(async move {
-        let cancel_clone_end = cancel_clone.clone();
-        if let Err(e) = rekcod_agent::init(cancel_clone).await {
-            println!("agent init error: {}", e);
-            cancel_clone_end.cancel();
-        }
-    });
+    start_spawn!(rekcod_agent::init);
 
     loop {
         tokio::select! {

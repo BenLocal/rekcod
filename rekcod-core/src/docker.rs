@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, process::Stdio, sync::Arc};
+use std::{ffi::OsStr, path::Path, process::Stdio, sync::Arc};
 
 use axum::http::HeaderValue;
 use bollard::{BollardRequest, Docker};
@@ -105,10 +105,16 @@ impl DockerCli {
 pub struct DockerComposeCli(Command);
 
 impl DockerComposeCli {
-    pub fn new<I, S>(ip: &str, port: u16, args: I) -> anyhow::Result<Self>
+    pub fn new<I, S, P>(
+        ip: &str,
+        port: u16,
+        args: I,
+        current_dir: Option<P>,
+    ) -> anyhow::Result<Self>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
+        P: AsRef<Path>,
     {
         let docker_compose_path = match which::which("docker compose") {
             Ok(path) => path,
@@ -130,8 +136,13 @@ impl DockerComposeCli {
             "DOCKER_CUSTOM_HEADERS",
             format!("{}={}", TOEKN_HEADER_KEY, get_token()),
         );
+        // disable buildkit
+        cmd.env("DOCKER_BUILDKIT", "0");
         cmd.args(args);
 
+        if let Some(current_dir) = current_dir {
+            cmd.current_dir(current_dir);
+        }
         return Ok(DockerComposeCli(cmd));
     }
 

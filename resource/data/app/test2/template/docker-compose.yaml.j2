@@ -2,5 +2,7 @@ services:
   server:
     build:
       context: .
+      dockerfile: Dockerfile
+    image: test2:v1.0
     ports:
       - "{{ Value.out_port }}:8000"

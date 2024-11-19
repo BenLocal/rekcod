@@ -1,13 +1,12 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
+use crate::{config::rekcod_server_config, db, node::node_manager};
 use bollard::container::RemoveContainerOptions;
 use once_cell::sync::Lazy;
 use rekcod_core::{api::req::AppDeployRequest, application::Application, docker::DockerComposeCli};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
-
-use crate::{config::rekcod_server_config, db, node::node_manager};
 
 use super::watch::AppWatcher;
 
@@ -163,7 +162,7 @@ async fn walk_dir(path: &PathBuf) -> anyhow::Result<(Vec<PathBuf>, Vec<PathBuf>)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct AppDeployInfo {
+pub struct AppDeployInfo {
     pub name: String,
     pub node_name: String,
     pub values: Option<String>,
@@ -171,7 +170,11 @@ struct AppDeployInfo {
     pub build: Option<bool>,
 }
 
-pub async fn deploy(req: &AppDeployRequest, app: &AppState) -> anyhow::Result<()> {
+pub async fn deploy(
+    req: &AppDeployRequest,
+    app: &AppState,
+    log_writer: &tokio::sync::mpsc::UnboundedSender<String>,
+) -> anyhow::Result<()> {
     let name = &req.name;
     let node_name = &req.node_name;
     let values = req.values.as_deref();
@@ -206,6 +209,7 @@ pub async fn deploy(req: &AppDeployRequest, app: &AppState) -> anyhow::Result<()
             });
             let _ = &old_node.docker.remove_container(name, options).await;
         }
+        let _ = log_writer.send(format!("stop app {} on node {}", name, info.node_name));
     }
     // 2. prepare new app, copy files to node
     let ctx: serde_yaml::Value = match values {
@@ -234,11 +238,6 @@ pub async fn deploy(req: &AppDeployRequest, app: &AppState) -> anyhow::Result<()
         }
     };
 
-    if let Some(project_dir) = project_dir.as_deref() {
-        cli_args.push("--project-directory");
-        cli_args.push(project_dir);
-    }
-
     cli_args.push("-f");
     cli_args.push("-");
     cli_args.push("up");
@@ -249,12 +248,21 @@ pub async fn deploy(req: &AppDeployRequest, app: &AppState) -> anyhow::Result<()
     }
 
     if let Some(new_node) = new_node {
-        let mut docker_compose_cli =
-            DockerComposeCli::new(new_node.get_node_ip(), new_node.get_node_port(), &cli_args)?;
+        let mut docker_compose_cli = DockerComposeCli::new(
+            new_node.get_node_ip(),
+            new_node.get_node_port(),
+            &cli_args,
+            project_dir,
+        )?;
         if let Some(c) = get_docker_compose_file(&maps) {
             docker_compose_cli.run_cache(c).await?;
         }
     }
+
+    let _ = log_writer.send(format!(
+        "deploy app {} on node {} success",
+        name, info.node_name
+    ));
 
     if insert {
         repositry

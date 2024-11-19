@@ -63,6 +63,43 @@ impl DbSet<'static, Sqlite, SqliteRow, Kvs> {
         Ok(())
     }
 
+    pub async fn delete(
+        &self,
+        module: &str,
+        key: Option<&str>,
+        sub_key: Option<&str>,
+        third_key: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let mut vs = Vec::new();
+        let mut q = format!("DELETE FROM kvs WHERE module = ?");
+        vs.push(module);
+
+        if let Some(key) = key {
+            q = format!("{} AND key = ? ", q);
+            vs.push(key);
+        }
+
+        if let Some(sub_key) = sub_key {
+            q = format!("{} AND sub_key = ?", q);
+            vs.push(sub_key);
+        }
+
+        if let Some(third_key) = third_key {
+            q = format!("{} AND third_key = ?", q);
+            vs.push(third_key);
+        }
+
+        q = format!("{} limit 1 ", q);
+
+        let mut query = sqlx::query(&q);
+        for v in vs {
+            query = query.bind(v);
+        }
+
+        let _ = query.execute(self.pool.as_ref()).await?;
+        Ok(())
+    }
+
     pub async fn select_one(
         &self,
         module: &str,

@@ -11,7 +11,6 @@ use axum::{
     Router,
 };
 
-use job::{events::docker_event_monitor, register, sys};
 use pin_project_lite::pin_project;
 use rekcod_core::constants::{DOCKER_PROXY_PATH, REKCOD_AGENT_PREFIX_PATH};
 
@@ -104,27 +103,23 @@ async fn docker_proxy_handler(
 }
 
 pub async fn init(cancel: CancellationToken) -> anyhow::Result<()> {
-    let cancel_clone = cancel.clone();
-    tokio::spawn(async move {
-        let cancel_clone_end = cancel_clone.clone();
-        if let Err(e) = register::register_node(cancel_clone).await {
-            println!("agent register error: {}", e);
-            cancel_clone_end.cancel();
-        }
-    });
+    macro_rules! start_init {
+        ($run: expr) => {
+            let cancel_clone = cancel.clone();
+            tokio::spawn(async move {
+                let cancel_clone_end = cancel_clone.clone();
+                if let Err(e) = $run(cancel_clone).await {
+                    tracing::error!("agent register event error: {}", e);
+                    cancel_clone_end.cancel();
+                }
+            });
+        };
+    }
 
-    let cancel_clone = cancel.clone();
-    tokio::spawn(async move {
-        let cancel_clone_end = cancel_clone.clone();
-        if let Err(e) = sys::sys_monitor(cancel_clone).await {
-            println!("sys monitor error: {}", e);
-            cancel_clone_end.cancel();
-        }
-    });
-
-    let cancel_clone = cancel.clone();
-    tokio::spawn(async { docker_event_monitor(cancel_clone).await });
-
+    start_init!(job::register::register_node);
+    start_init!(job::sys::sys_monitor);
+    start_init!(job::events::docker_event_monitor);
+    start_init!(job::container::docker_health_monitor);
     Ok(())
 }
 
