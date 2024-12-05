@@ -40,8 +40,8 @@ const get_docker_images_list = async node_name => {
 
     return {
       id: item.Id.replace('sha256:', '').substring(0, 12),
-      name: item.RepoTags[0].split(':')[0],
-      tag: item.RepoTags[0].split(':')[1],
+      name: name,
+      tag: tag,
       container_count: item.Containers < 0 ? 0 : item.Containers,
     }
   })

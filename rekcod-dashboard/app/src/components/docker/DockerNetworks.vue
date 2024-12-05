@@ -32,12 +32,21 @@ const get_docker_networks = async node_name => {
   }
 
   networks.value = data.map(item => {
+    let config = "-"
+    let gate = "-"
+
+    if (item.IPAM?.Config && item.IPAM?.Config.length > 0) {
+      config = item.IPAM?.Config[0]?.Subnet || "-"
+      gate = item.IPAM?.Config[0]?.Gateway || "-"
+    }
+
+
     return {
       id: item.Id.replace('sha256:', '').substring(0, 12),
       name: item.Name,
       driver: item.Driver || '-',
-      config: item.IPAM?.Config[0]?.Subnet || '-',
-      gate: item.IPAM?.Config[0]?.Gateway || '-',
+      config: config,
+      gate: gate,
     }
   })
 }

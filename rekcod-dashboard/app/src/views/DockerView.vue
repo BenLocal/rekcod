@@ -130,11 +130,7 @@ const get_sys = async () => {
   }
   console.log(data)
 
-  sysInfo.value = {
-    cpu_usage: data.cpu_usage.toFixed(2),
-    mem_usage: data.mem_usage.toFixed(2),
-    disks:
-      data.disks?.map(item => {
+  let disks = data.disks?.map(item => {
         const p = (((item.total - item.free) / item.total) * 100).toFixed(2)
         const status = p > 80 ? 'danger' : p > 60 ? 'warning' : 'success'
         return {
@@ -142,7 +138,14 @@ const get_sys = async () => {
           percent: p,
           status: status,
         }
-      }) || [],
+      }) || []
+  if (disks.length > 0) {
+    disks = disks.slice(0, 3)
+  }
+  sysInfo.value = {
+    cpu_usage: data.cpu_usage.toFixed(2),
+    mem_usage: data.mem_usage.toFixed(2),
+    disks: disks,
   }
 }
 
