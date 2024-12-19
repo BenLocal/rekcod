@@ -26,18 +26,21 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import api from '../api'
 import { ElMessage } from 'element-plus'
+import { Document } from 'yaml'
 
 const props = defineProps({ id: String })
 const appInfo = ref({
   id: '',
   app_name: '',
   node_name: '',
+  build: false,
   qa: [],
 })
 const nodes = ref([])
+const valuesYml = ref('')
 
 const get_app_info = async id => {
   const { code, data, msg } = await (await api.getAppInfo(id)).data
@@ -71,7 +74,39 @@ const get_node_list = async () => {
     })
 }
 
-const on_deploy_submit = () => {}
+const on_deploy_submit = async () => {
+  console.log(valuesYml.value)
+  const data = {
+    id: appInfo.value.id,
+    app_name: appInfo.value.app_name,
+    node_name: appInfo.value.node_name,
+    values: valuesYml.value,
+  }
+  console.log(data)
+  const { code, msg } = await (await api.deploy(data)).data
+  if (code !== 0) {
+    ElMessage.error(msg || '部署失败')
+    return
+  }
+
+  ElMessage.success('部署成功')
+}
+
+watch(appInfo, (n) => {
+  console.log(n)
+  if (!n || !n.qa || n.qa.length === 0) {
+    valuesYml.value = ''
+    return
+  }
+
+  let obj = {}
+  n.qa.forEach(item => {
+    obj[item.name] = item.value
+  })
+  const doc = new Document();
+  doc.contents = obj
+  valuesYml.value = doc.toString()
+}, { deep: true })
 
 onMounted(() => {
   get_node_list()

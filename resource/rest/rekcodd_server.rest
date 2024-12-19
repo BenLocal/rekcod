@@ -16,6 +16,6 @@ Content-Type: application/json
 {
     "name": "test2",
     "app_name": "test2",
-    "node_name": "192.168.4.25",
+    "node_name": "172.17.0.5",
     "build": true
 }

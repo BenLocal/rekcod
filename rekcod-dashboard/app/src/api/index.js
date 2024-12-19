@@ -88,6 +88,10 @@ const api = {
   async saveEnv(data) {
     return axios.post('/api/env/set', data)
   },
+  async deploy(data) {
+    // value is yml string
+    return axios.post('/api/app/deploy', data)
+  }
 }
 
 export default api

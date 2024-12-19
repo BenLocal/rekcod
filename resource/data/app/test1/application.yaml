@@ -3,11 +3,15 @@ version: 1
 description: this is a test1
 icon: test1
 qa:
-  - id: aaaa
-    name: bbbb
-    label: 输入1
+  - id: out_port
+    name: out_port
+    label: 映射端口
     type: string
-  - id: bbbb
-    name: bbbb
-    label: 输入2
+  - id: in_port
+    name: in_port
+    label: 内部端口
+    type: string
+  - id: cmd
+    name: cmd
+    label: 命令
     type: string
