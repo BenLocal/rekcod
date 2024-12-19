@@ -142,7 +142,7 @@ async fn connect_to_docker(
 ) -> anyhow::Result<(String, StartExecResults)> {
     // get node
     let config = CreateExecOptions {
-        cmd: Some(vec!["sh"]),
+        cmd: Some(vec!["/bin/bash"]),
         attach_stdout: Some(true),
         attach_stderr: Some(true),
         attach_stdin: Some(true),
