@@ -24,6 +24,11 @@ setup_env() {
 }
 
 create_env() {
+    PARENT_DIR=$(dirname "${FILE_REKCOD_ENV}")
+    if [ ! -d $PARENT_DIR ]; then
+        mkdir -p $PARENT_DIR
+    fi
+
     touch ${FILE_REKCOD_ENV}
     chmod 0600 ${FILE_REKCOD_ENV}
     sh -c export | while read x v; do echo $v; done | grep -E '^(REKCOD|DOCKER)_' | tee ${FILE_REKCOD_ENV} >/dev/null
@@ -57,7 +62,11 @@ start_and_enable_service() {
 
 try_stop_service() {
     # systemctl status rekcod
-    systemctl stop rekcod
+    if systemctl list-units --type=service --all | grep -q "rekcod"; then
+        systemctl stop rekcod
+    else
+        echo "Service rekcod does not exist."
+    fi
 }
 
 offline_install() {

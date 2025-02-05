@@ -51,7 +51,7 @@ pub(crate) struct AgentArgs {
     #[clap(long, default_value = REKCOD_DATA_DEFAULT_PATH)]
     pub data_path: String,
 
-    #[clap(long)]
+    #[clap(long, help = "master host and port, some like `0.0.0.0:6734`")]
     pub master_host: String,
 
     #[clap(long, default_value = REKCOD_CONFIG_DEFAULT_PATH)]

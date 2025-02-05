@@ -1,7 +1,11 @@
 [build]
 
-[target.x86_64-unknown-linux-musl]
-dockerfile = "./build/x86_64-unknown-linux-musl/Dockerfile"
+[target.x86_64-unknown-linux-musl.dockerfile]
+file = "./build/x86_64-unknown-linux-musl/Dockerfile"
+context = "."
+build-args = { OPENSSL_HOST = "http://172.29.232.81:1234/openssl" }
 
-[target.aarch64-unknown-linux-musl]
-dockerfile = "./build/aarch64-unknown-linux-musl/Dockerfile"
+[target.aarch64-unknown-linux-musl.dockerfile]
+file = "./build/aarch64-unknown-linux-musl/Dockerfile"
+context = "."
+build-args = { OPENSSL_HOST = "http://172.29.232.81:1234/openssl" }

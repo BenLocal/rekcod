@@ -1,6 +1,6 @@
-name: this is a test
+name: test1
 version: 1
-description: this is a test1
+description: this is a test1 application description
 icon: test1
 qa:
   - id: out_port

@@ -7,6 +7,7 @@ use rekcod_core::{api::req::AppDeployRequest, application::Application, docker::
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
+use tracing::error;
 
 use super::watch::AppWatcher;
 
@@ -105,7 +106,7 @@ impl AppManager {
                 root_path: entry.as_path().to_path_buf(),
             });
 
-            let mut app_clone = app.clone();
+            let id_clone = id.to_string();
             tokio::spawn(async move {
                 loop {
                     tokio::select! {
@@ -117,14 +118,18 @@ impl AppManager {
                             let application: Application = match serde_yaml::from_reader(file) {
                                 Ok(f) => f,
                                 Err(e) => {
-                                    println!("Error loading application.yaml: {}", e);
+                                    error!("Error loading application.yaml: {}", e);
                                     continue;
                                 }
                             };
+
                             {
-                              if let Some(tmp) = Arc::get_mut(&mut app_clone){
-                                tmp.info = Some(application);
-                              }
+                                let mut apps = get_app_manager().app_list.write().await;
+                                if let Some(tmp) = apps.get_mut(&id_clone) {
+                                    if let Some(tmp) = Arc::get_mut(tmp) {
+                                        tmp.info = Some(application);
+                                    }
+                                }
                             }
                         }
                     }
