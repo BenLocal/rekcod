@@ -13,21 +13,27 @@ type AppWatcherType = notify::INotifyWatcher;
 type AppWatcherType = notify::FsEventWatcher;
 
 pub struct AppWatcher {
-    _app_watcher: AppWatcherType,
+    _app_watcher: Option<AppWatcherType>,
     tmpl_engine: Engine,
 }
 
 impl AppWatcher {
-    pub fn new(app_path: &PathBuf, tmpl_path: &PathBuf) -> anyhow::Result<(Self, AppNotifier)> {
+    pub fn new(app_path: &PathBuf, tmpl_path: &PathBuf) -> (Self, Option<AppNotifier>) {
         let tmpl_engine = Engine::new(tmpl_path);
-        let (w, n) = Self::watch(&app_path)?;
-        Ok((
+        let (w, n) = match Self::watch(&app_path) {
+            Ok((w, n)) => (Some(w), Some(n)),
+            Err(e) => {
+                tracing::error!("Error watch path({:#?}) {:#?}", app_path, e);
+                (None, None)
+            }
+        };
+        (
             AppWatcher {
                 _app_watcher: w,
                 tmpl_engine,
             },
             n,
-        ))
+        )
     }
 
     pub fn watch(

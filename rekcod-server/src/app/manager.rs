@@ -98,18 +98,7 @@ impl AppTmplManager {
                     None
                 }
             };
-            let (app_watcher, mut app_notifier) =
-                match AppWatcher::new(&application_path, &tmpl_path) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        tracing::error!(
-                            "Error watch application.yaml: path({:#?}) {:#?}",
-                            application_path,
-                            e
-                        );
-                        continue;
-                    }
-                };
+            let (app_watcher, app_notifier) = AppWatcher::new(&application_path, &tmpl_path);
             let app_tmpl = Arc::new(AppTmplState {
                 tmpl_service: ServeDir::new(&tmpl_path),
                 id: id.to_string(),
@@ -121,36 +110,37 @@ impl AppTmplManager {
 
             // insert app tmpl
             app_tmpls.insert(id.to_string(), app_tmpl);
+            if let Some(mut app_notifier) = app_notifier {
+                let id_clone = id.to_string();
+                tokio::spawn(async move {
+                    loop {
+                        tokio::select! {
+                            _ = app_notifier.changed() => {
+                                let content = match tokio::fs::read_to_string(&application_path).await {
+                                    Ok(f) => f,
+                                    Err(_) => continue,
+                                };
+                                let application_tmpl: ApplicationTmpl = match serde_yaml::from_str(&content) {
+                                    Ok(f) => f,
+                                    Err(e) => {
+                                        error!("Error loading application.yaml: {}", e);
+                                        continue;
+                                    }
+                                };
 
-            let id_clone = id.to_string();
-            tokio::spawn(async move {
-                loop {
-                    tokio::select! {
-                        _ = app_notifier.changed() => {
-                            let content = match tokio::fs::read_to_string(&application_path).await {
-                                Ok(f) => f,
-                                Err(_) => continue,
-                            };
-                            let application_tmpl: ApplicationTmpl = match serde_yaml::from_str(&content) {
-                                Ok(f) => f,
-                                Err(e) => {
-                                    error!("Error loading application.yaml: {}", e);
-                                    continue;
-                                }
-                            };
-
-                            {
-                                let mut apps = get_app_tmpl_manager().app_tmpl_list.write().await;
-                                if let Some(tmp) = apps.get_mut(&id_clone) {
-                                    if let Some(tmp) = Arc::get_mut(tmp) {
-                                        tmp.info = Some(application_tmpl);
+                                {
+                                    let mut apps = get_app_tmpl_manager().app_tmpl_list.write().await;
+                                    if let Some(tmp) = apps.get_mut(&id_clone) {
+                                        if let Some(tmp) = Arc::get_mut(tmp) {
+                                            tmp.info = Some(application_tmpl);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-            });
+                });
+            }
         }
 
         Ok(())
