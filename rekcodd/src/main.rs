@@ -141,7 +141,7 @@ async fn run_main() -> anyhow::Result<()> {
             tokio::spawn(async move {
                 let ccc = cancel_clone.clone();
                 if let Err(e) = $run(cancel_clone).await {
-                    error!("{} error: {}", stringify!($run), e);
+                    error!("{} error: {:#?}", stringify!($run), e);
                     ccc.cancel();
                 }
             });

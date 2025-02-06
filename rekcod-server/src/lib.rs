@@ -53,14 +53,12 @@ pub fn routers() -> Router {
 }
 
 pub async fn init(_cancel: CancellationToken) -> anyhow::Result<()> {
+    // init config
     init_rekcod_client_config().await?;
+    // migrate db
     db::migrate().await?;
-    if let Err(e) = get_app_tmpl_manager().init().await {
-        tracing::error!("init app tmpl manager error: {:?}", e);
-        for cause in e.chain() {
-            tracing::error!("Caused by: {:?}", cause);
-        }
-    }
+    // init app tmpl manager
+    get_app_tmpl_manager().init().await?;
     Ok(())
 }
 
