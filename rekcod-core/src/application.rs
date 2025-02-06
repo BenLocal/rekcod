@@ -1,15 +1,15 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Application {
+pub struct ApplicationTmpl {
     pub name: String,
     pub description: String,
     pub version: Option<String>,
-    pub qa: Option<Vec<ApplicationQaItem>>,
+    pub qa: Option<Vec<ApplicationTmplQaItem>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ApplicationQaItem {
+pub struct ApplicationTmplQaItem {
     pub id: String,
     pub name: String,
     pub label: String,

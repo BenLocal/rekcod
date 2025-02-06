@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tabled::Tabled;
 
-use crate::application::ApplicationQaItem;
+use crate::application::ApplicationTmplQaItem;
 
 #[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -133,13 +133,13 @@ pub struct NodeItemResponse {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct ApplicationResponse {
+pub struct ApplicationTmplResponse {
     pub id: String,
     pub name: String,
     pub description: String,
     pub version: Option<String>,
     pub tmpls: Vec<String>,
-    pub qa: Option<Vec<ApplicationQaItem>>,
+    pub qa: Option<Vec<ApplicationTmplQaItem>>,
     pub values: Option<String>,
 }
 

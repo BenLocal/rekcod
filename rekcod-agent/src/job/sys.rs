@@ -12,7 +12,7 @@ static SYS_INFO_GLOBAL: Lazy<GlobalSysInfo> = Lazy::new(|| GlobalSysInfo {
     os_version: System::os_version(),
     long_os_version: System::long_os_version(),
     host_name: System::host_name(),
-    cpu_arch: System::cpu_arch(),
+    cpu_arch: Some(System::cpu_arch()),
 });
 
 pub(crate) fn sys_info() -> SysInfo {
@@ -117,7 +117,7 @@ pub(crate) async fn sys_monitor(cancel: CancellationToken) -> anyhow::Result<()>
     let mut s = sysinfo::System::new();
     let mut disks = sysinfo::Disks::new();
     let mut networks = sysinfo::Networks::new();
-    let rk = RefreshKind::new()
+    let rk = RefreshKind::nothing()
         .with_cpu(CpuRefreshKind::everything())
         .with_memory(MemoryRefreshKind::everything());
     loop {
@@ -140,7 +140,7 @@ pub(crate) async fn sys_monitor(cancel: CancellationToken) -> anyhow::Result<()>
                 sys_info.mem_used = s.used_memory();
 
                 if cfg!(target_os = "linux") {
-                    disks.refresh_list();
+                    disks.refresh(true);
                     sys_info.disks = disks.list().iter().map(|x| {
                         SysDisk {
                             name:x.name().to_string_lossy().to_string(),
@@ -153,7 +153,7 @@ pub(crate) async fn sys_monitor(cancel: CancellationToken) -> anyhow::Result<()>
                 }
 
 
-                networks.refresh_list();
+                networks.refresh(true);
                 sys_info.networks = networks.list().iter().map(|(x, d)| {
                     SysNetwork {
                         name: x.to_string(),

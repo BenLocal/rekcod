@@ -26,10 +26,10 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
-import api from '../api'
 import { ElMessage } from 'element-plus'
+import { onMounted, ref, watch } from 'vue'
 import { Document } from 'yaml'
+import api from '../api'
 
 const props = defineProps({ id: String })
 const appInfo = ref({
@@ -42,8 +42,8 @@ const appInfo = ref({
 const nodes = ref([])
 const valuesYml = ref('')
 
-const get_app_info = async id => {
-  const { code, data, msg } = await (await api.getAppInfo(id)).data
+const get_app_tmpl_info = async id => {
+  const { code, data, msg } = await (await api.getAppTmplInfo(id)).data
   if (code !== 0) {
     ElMessage.error(msg || '获取Application列表失败')
     return
@@ -110,6 +110,6 @@ watch(appInfo, (n) => {
 
 onMounted(() => {
   get_node_list()
-  get_app_info(props.id)
+  get_app_tmpl_info(props.id)
 })
 </script>

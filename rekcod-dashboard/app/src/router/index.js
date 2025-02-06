@@ -29,7 +29,7 @@ const router = createRouter({
         {
           path: 'app',
           name: 'app',
-          component: () => import('../views/ApplicationView.vue'),
+          component: () => import('../views/ApplicationTemplateView.vue'),
         },
         {
           path: 'app/:id',

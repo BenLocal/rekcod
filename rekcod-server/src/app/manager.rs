@@ -3,7 +3,9 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use crate::{config::rekcod_server_config, db, node::node_manager};
 use bollard::container::RemoveContainerOptions;
 use once_cell::sync::Lazy;
-use rekcod_core::{api::req::AppDeployRequest, application::Application, docker::DockerComposeCli};
+use rekcod_core::{
+    api::req::AppDeployRequest, application::ApplicationTmpl, docker::DockerComposeCli,
+};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
@@ -11,26 +13,26 @@ use tracing::error;
 
 use super::watch::AppWatcher;
 
-static APP_MANAGER: Lazy<AppManager> = Lazy::new(AppManager::new);
+static APP_TMPL_MANAGER: Lazy<AppTmplManager> = Lazy::new(AppTmplManager::new);
 
-pub fn get_app_manager() -> &'static AppManager {
-    &APP_MANAGER
+pub fn get_app_tmpl_manager() -> &'static AppTmplManager {
+    &APP_TMPL_MANAGER
 }
 
-pub struct AppManager {
-    pub app_list: RwLock<HashMap<String, Arc<AppState>>>,
+pub struct AppTmplManager {
+    pub app_tmpl_list: RwLock<HashMap<String, Arc<AppTmplState>>>,
 }
 
-pub struct AppState {
+pub struct AppTmplState {
     root_path: PathBuf,
     pub tmpl_service: ServeDir,
     pub id: String,
-    pub info: Option<Application>,
+    pub info: Option<ApplicationTmpl>,
     pub tmpls: Vec<String>,
     pub watcher: AppWatcher,
 }
 
-impl AppState {
+impl AppTmplState {
     pub fn get_app_root_path(&self) -> &PathBuf {
         &self.root_path
     }
@@ -40,19 +42,19 @@ impl AppState {
     }
 }
 
-impl AppManager {
-    pub fn new() -> AppManager {
-        AppManager {
-            app_list: HashMap::new().into(),
+impl AppTmplManager {
+    pub fn new() -> Self {
+        Self {
+            app_tmpl_list: HashMap::new().into(),
         }
     }
 
-    pub async fn get_app(&self, id: &str) -> Option<Arc<AppState>> {
-        self.app_list.read().await.get(id).map(Arc::clone)
+    pub async fn get_app_tmpl(&self, id: &str) -> Option<Arc<AppTmplState>> {
+        self.app_tmpl_list.read().await.get(id).map(Arc::clone)
     }
 
-    pub async fn get_app_list(&self) -> Vec<Arc<AppState>> {
-        self.app_list
+    pub async fn get_app_tmpl_list(&self) -> Vec<Arc<AppTmplState>> {
+        self.app_tmpl_list
             .read()
             .await
             .values()
@@ -69,7 +71,7 @@ impl AppManager {
 
         let (mut dir_entries, _) = walk_dir(&get_app_root_path).await?;
 
-        let mut apps = self.app_list.write().await;
+        let mut app_tmpls = self.app_tmpl_list.write().await;
 
         while let Some(entry) = dir_entries.pop() {
             let id = match entry.file_name() {
@@ -85,37 +87,51 @@ impl AppManager {
                 .collect::<Vec<_>>();
 
             let application_path = entry.join("application.yaml");
-            let file = match std::fs::File::open(&application_path) {
+            let content = match tokio::fs::read_to_string(&application_path).await {
                 Ok(f) => f,
                 Err(_) => continue,
             };
-            let application: Option<Application> = match serde_yaml::from_reader(file) {
+            let application_tmpl: Option<ApplicationTmpl> = match serde_yaml::from_str(&content) {
                 Ok(f) => Some(f),
                 Err(e) => {
                     tracing::error!("Error loading application.yaml: {}", e);
                     None
                 }
             };
-            let (app_watcher, mut app_notifier) = AppWatcher::new(&application_path, &tmpl_path)?;
-            let app = Arc::new(AppState {
+            let (app_watcher, mut app_notifier) =
+                match AppWatcher::new(&application_path, &tmpl_path) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        tracing::error!(
+                            "Error watch application.yaml: path({:#?}) {:#?}",
+                            application_path,
+                            e
+                        );
+                        continue;
+                    }
+                };
+            let app_tmpl = Arc::new(AppTmplState {
                 tmpl_service: ServeDir::new(&tmpl_path),
                 id: id.to_string(),
-                info: application,
+                info: application_tmpl,
                 tmpls,
                 watcher: app_watcher,
                 root_path: entry.as_path().to_path_buf(),
             });
+
+            // insert app tmpl
+            app_tmpls.insert(id.to_string(), app_tmpl);
 
             let id_clone = id.to_string();
             tokio::spawn(async move {
                 loop {
                     tokio::select! {
                         _ = app_notifier.changed() => {
-                            let file = match std::fs::File::open(&application_path) {
+                            let content = match tokio::fs::read_to_string(&application_path).await {
                                 Ok(f) => f,
                                 Err(_) => continue,
                             };
-                            let application: Application = match serde_yaml::from_reader(file) {
+                            let application_tmpl: ApplicationTmpl = match serde_yaml::from_str(&content) {
                                 Ok(f) => f,
                                 Err(e) => {
                                     error!("Error loading application.yaml: {}", e);
@@ -124,10 +140,10 @@ impl AppManager {
                             };
 
                             {
-                                let mut apps = get_app_manager().app_list.write().await;
+                                let mut apps = get_app_tmpl_manager().app_tmpl_list.write().await;
                                 if let Some(tmp) = apps.get_mut(&id_clone) {
                                     if let Some(tmp) = Arc::get_mut(tmp) {
-                                        tmp.info = Some(application);
+                                        tmp.info = Some(application_tmpl);
                                     }
                                 }
                             }
@@ -135,8 +151,6 @@ impl AppManager {
                     }
                 }
             });
-
-            apps.insert(id.to_string(), app);
         }
 
         Ok(())
@@ -177,7 +191,7 @@ pub struct AppDeployInfo {
 
 pub async fn deploy(
     req: &AppDeployRequest,
-    app: &AppState,
+    app_tmpl: &AppTmplState,
     log_writer: &tokio::sync::mpsc::UnboundedSender<String>,
 ) -> anyhow::Result<()> {
     let name = &req.name;
@@ -223,8 +237,8 @@ pub async fn deploy(
     };
 
     let mut maps = HashMap::new();
-    for tmpl in app.tmpls.iter() {
-        let context = app.watcher.get_context(tmpl, &ctx).await?;
+    for tmpl in app_tmpl.tmpls.iter() {
+        let context = app_tmpl.watcher.get_context(tmpl, &ctx).await?;
         maps.insert(tmpl.clone(), context);
     }
 
@@ -234,7 +248,7 @@ pub async fn deploy(
     let project_dir = match &req.project {
         Some(p) => Some(p.to_string()),
         None => {
-            let project_dir = app.get_default_project_path();
+            let project_dir = app_tmpl.get_default_project_path();
             if project_dir.exists() {
                 project_dir.to_str().map(|d| d.to_string())
             } else {

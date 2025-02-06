@@ -8,7 +8,7 @@ use hyper::Request;
 use rekcod_core::{
     api::{
         req::{AppDeployDeleteRequest, AppDeployRequest, RenderTmplRequest},
-        resp::{ApiJsonResponse, ApplicationResponse, RenderTmplResponse},
+        resp::{ApiJsonResponse, ApplicationTmplResponse, RenderTmplResponse},
     },
     http::ApiError,
 };
@@ -16,21 +16,20 @@ use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 use tower::ServiceExt;
 
 use crate::{
-    app::{
-        engine::render_dynamic_tmpl,
-        manager::{get_app_manager, AppDeployInfo},
-    },
+    app::manager::get_app_tmpl_manager,
+    app::{engine::render_dynamic_tmpl, manager::AppDeployInfo},
     db,
 };
 
-pub async fn get_app_list() -> Result<Json<ApiJsonResponse<Vec<ApplicationResponse>>>, ApiError> {
-    let apps = get_app_manager()
-        .get_app_list()
+pub async fn get_app_tmpl_list(
+) -> Result<Json<ApiJsonResponse<Vec<ApplicationTmplResponse>>>, ApiError> {
+    let app_tmpls = get_app_tmpl_manager()
+        .get_app_tmpl_list()
         .await
         .into_iter()
         .filter_map(|app| {
             let info = &app.info.clone()?;
-            Some(ApplicationResponse {
+            Some(ApplicationTmplResponse {
                 name: info.name.clone(),
                 description: info.description.clone(),
                 tmpls: app.tmpls.clone(),
@@ -41,18 +40,18 @@ pub async fn get_app_list() -> Result<Json<ApiJsonResponse<Vec<ApplicationRespon
             })
         })
         .collect();
-    Ok(ApiJsonResponse::success(apps).into())
+    Ok(ApiJsonResponse::success(app_tmpls).into())
 }
 
-pub async fn get_app_by_id(
+pub async fn get_app_tmpl_by_id(
     Path(id): Path<String>,
-) -> Result<Json<ApiJsonResponse<ApplicationResponse>>, ApiError> {
-    get_app_manager()
-        .get_app(&id)
+) -> Result<Json<ApiJsonResponse<ApplicationTmplResponse>>, ApiError> {
+    get_app_tmpl_manager()
+        .get_app_tmpl(&id)
         .await
         .map(|app| {
             let info = &app.info.clone().unwrap();
-            let resp = ApplicationResponse {
+            let resp = ApplicationTmplResponse {
                 name: info.name.clone(),
                 description: info.description.clone(),
                 tmpls: app.tmpls.clone(),
@@ -61,7 +60,7 @@ pub async fn get_app_by_id(
                 qa: info.qa.clone(),
                 values: None,
             };
-            ApiJsonResponse::success(ApplicationResponse::from(resp)).into()
+            ApiJsonResponse::success(ApplicationTmplResponse::from(resp)).into()
         })
         .ok_or(anyhow::anyhow!("App not found").into())
 }
@@ -70,8 +69,8 @@ pub async fn get_app_by_id(
 pub async fn get_app_template_by_name(
     Path((name, tmpl)): Path<(String, String)>,
 ) -> Result<Response, ApiError> {
-    let app_manager = get_app_manager();
-    let app = match app_manager.get_app(&name).await {
+    let app_manager = get_app_tmpl_manager();
+    let app = match app_manager.get_app_tmpl(&name).await {
         Some(app) => app,
         None => return Err(anyhow::anyhow!("App not found").into()),
     };
@@ -127,13 +126,13 @@ pub async fn delete_deploy_app(
 }
 
 pub async fn app_deploy(Json(req): Json<AppDeployRequest>) -> Result<Response, ApiError> {
-    let app_manager = get_app_manager();
-    let app = match app_manager.get_app(&req.app_name).await {
+    let app_tmpl_manager = get_app_tmpl_manager();
+    let app_tmpl = match app_tmpl_manager.get_app_tmpl(&req.app_name).await {
         Some(app) => app,
         None => return Err(anyhow::anyhow!("App not found").into()),
     };
     let (tx_chan, rx_chan) = tokio::sync::mpsc::unbounded_channel::<String>();
-    crate::app::manager::deploy(&req, &app, &tx_chan).await?;
+    crate::app::manager::deploy(&req, &app_tmpl, &tx_chan).await?;
     Ok(Response::new(Body::from_stream(
         UnboundedReceiverStream::new(rx_chan).map(|x| anyhow::Ok(x)),
     )))

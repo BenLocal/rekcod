@@ -14,7 +14,7 @@ type AppWatcherType = notify::FsEventWatcher;
 
 pub struct AppWatcher {
     _app_watcher: AppWatcherType,
-    pub tmpl_engine: Engine,
+    tmpl_engine: Engine,
 }
 
 impl AppWatcher {
@@ -45,7 +45,7 @@ impl AppWatcher {
             notify::Config::default(),
         )?;
 
-        watcher.watch(&path, RecursiveMode::Recursive)?;
+        watcher.watch(&path, RecursiveMode::NonRecursive)?;
         Ok((watcher, rx))
     }
 

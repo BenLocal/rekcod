@@ -15,14 +15,14 @@
 </template>
 
 <script setup>
+import { ElMessage } from 'element-plus'
 import { onMounted, ref } from 'vue'
 import api from '../api'
-import { ElMessage } from 'element-plus'
 
 const appList = ref([])
 
-const get_app_list = async () => {
-  const { code, data, msg } = await (await api.getAppList()).data
+const get_app_tmpl_list = async () => {
+  const { code, data, msg } = await (await api.getAppTmplList()).data
   if (code !== 0) {
     ElMessage.error(msg || '获取Application列表失败')
     return
@@ -40,7 +40,7 @@ const get_app_list = async () => {
 }
 
 onMounted(() => {
-  get_app_list()
+  get_app_tmpl_list()
 })
 </script>
 

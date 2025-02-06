@@ -1,7 +1,7 @@
 use std::{path::Path, sync::Arc};
 
 use api::{node_proxy::create_node_proxy_client, socketio::socketio_routers};
-use app::manager::get_app_manager;
+use app::manager::get_app_tmpl_manager;
 use axum::Router;
 
 use rekcod_core::{
@@ -55,7 +55,12 @@ pub fn routers() -> Router {
 pub async fn init(_cancel: CancellationToken) -> anyhow::Result<()> {
     init_rekcod_client_config().await?;
     db::migrate().await?;
-    get_app_manager().init().await?;
+    if let Err(e) = get_app_tmpl_manager().init().await {
+        tracing::error!("init app tmpl manager error: {:?}", e);
+        for cause in e.chain() {
+            tracing::error!("Caused by: {:?}", cause);
+        }
+    }
     Ok(())
 }
 

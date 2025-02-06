@@ -76,11 +76,11 @@ const api = {
       },
     })
   },
-  async getAppList() {
-    return axios.post('/api/app/list')
+  async getAppTmplList() {
+    return axios.post('/api/app/tmpl/list')
   },
-  async getAppInfo(id) {
-    return axios.post(`/api/app/info/${id}`)
+  async getAppTmplInfo(id) {
+    return axios.post(`/api/app/tmpl/info/${id}`)
   },
   async getEnv() {
     return axios.post('/api/env/list')

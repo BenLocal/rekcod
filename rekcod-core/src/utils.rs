@@ -1,9 +1,11 @@
+use base64::prelude::*;
+
 pub fn decode_base64(input: &str) -> Vec<u8> {
-    base64::decode(input).unwrap()
+    BASE64_STANDARD.decode(input).unwrap()
 }
 
 pub fn encode_base64(input: &[u8]) -> String {
-    base64::encode(input)
+    BASE64_STANDARD.encode(input)
 }
 
 #[cfg(test)]
