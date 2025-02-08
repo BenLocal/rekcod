@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use crate::{config::rekcod_server_config, db, node::node_manager};
+use crate::{config::rekcod_server_config, db, node::manager::node_manager};
 use bollard::container::RemoveContainerOptions;
 use once_cell::sync::Lazy;
 use rekcod_core::{
@@ -110,41 +110,50 @@ impl AppTmplManager {
 
             // insert app tmpl
             app_tmpls.insert(id.to_string(), app_tmpl);
-            if let Some(mut app_notifier) = app_notifier {
+            if let Some(app_notifier) = app_notifier {
                 let id_clone = id.to_string();
-                tokio::spawn(async move {
-                    loop {
-                        tokio::select! {
-                            _ = app_notifier.changed() => {
-                                let content = match tokio::fs::read_to_string(&application_path).await {
-                                    Ok(f) => f,
-                                    Err(_) => continue,
-                                };
-                                let application_tmpl: ApplicationTmpl = match serde_yaml::from_str(&content) {
-                                    Ok(f) => f,
-                                    Err(e) => {
-                                        error!("Error loading application.yaml: {}", e);
-                                        continue;
-                                    }
-                                };
-
-                                {
-                                    let mut apps = get_app_tmpl_manager().app_tmpl_list.write().await;
-                                    if let Some(tmp) = apps.get_mut(&id_clone) {
-                                        if let Some(tmp) = Arc::get_mut(tmp) {
-                                            tmp.info = Some(application_tmpl);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
+                let application_path = application_path.clone();
+                app_notifier_changed_spawn_loop(id_clone, application_path, app_notifier);
             }
         }
 
         Ok(())
     }
+}
+
+fn app_notifier_changed_spawn_loop(
+    id: String,
+    application_path: PathBuf,
+    mut app_notifier: tokio::sync::watch::Receiver<()>,
+) {
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                _ = app_notifier.changed() => {
+                    let content = match tokio::fs::read_to_string(&application_path).await {
+                        Ok(f) => f,
+                        Err(_) => continue,
+                    };
+                    let application_tmpl: ApplicationTmpl = match serde_yaml::from_str(&content) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            error!("Error loading application.yaml: {}", e);
+                            continue;
+                        }
+                    };
+
+                    {
+                        let mut apps = get_app_tmpl_manager().app_tmpl_list.write().await;
+                        if let Some(tmp) = apps.get_mut(&id) {
+                            if let Some(tmp) = Arc::get_mut(tmp) {
+                                tmp.info = Some(application_tmpl);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 async fn walk_dir(path: &PathBuf) -> anyhow::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
@@ -289,12 +298,7 @@ pub async fn deploy(
         info.project = req.project.clone();
         repositry
             .kvs
-            .update_value(&db::kvs::KvsForDb {
-                module: "app".to_string(),
-                key: name.to_string(),
-                value: serde_json::to_string(&info)?,
-                ..Default::default()
-            })
+            .update_value("app", name, None, None, &serde_json::to_string(&info)?)
             .await?;
     }
 

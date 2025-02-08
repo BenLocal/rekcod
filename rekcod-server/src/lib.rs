@@ -52,13 +52,16 @@ pub fn routers() -> Router {
     router
 }
 
-pub async fn init(_cancel: CancellationToken) -> anyhow::Result<()> {
+pub async fn init(cancel: CancellationToken) -> anyhow::Result<()> {
     // init config
     init_rekcod_client_config().await?;
     // migrate db
     db::migrate().await?;
     // init app tmpl manager
     get_app_tmpl_manager().init().await?;
+    // monitor nodes
+    let cancel = cancel.clone();
+    tokio::spawn(node::monitor::monitor(cancel));
     Ok(())
 }
 

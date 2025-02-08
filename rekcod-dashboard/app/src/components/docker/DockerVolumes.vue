@@ -7,9 +7,9 @@
 </template>
 
 <script setup>
+import { ElMessage } from 'element-plus'
 import { onMounted, ref } from 'vue'
 import api from '../../api'
-import { ElMessage } from 'element-plus'
 
 const props = defineProps({
   node_name: String,
@@ -29,7 +29,7 @@ const get_docker_volumes = async node_name => {
     return
   }
   if (!data.Volumes || data.Volumes.length === 0) {
-    ElMessage.error('没有可用的存储卷')
+    ElMessage.warning('没有可用的存储卷')
     return
   }
 

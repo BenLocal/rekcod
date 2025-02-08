@@ -32,14 +32,38 @@ impl DbSet<'static, Sqlite, SqliteRow, Kvs> {
         Ok(())
     }
 
-    pub async fn update_value(&self, kvs: &KvsForDb) -> anyhow::Result<()> {
-        let _ = sqlx::query("UPDATE kvs SET value = ? WHERE module = ? AND key = ?")
-            .bind(kvs.value.as_str())
-            .bind(kvs.module.as_str())
-            .bind(kvs.key.as_str())
-            .execute(self.pool.as_ref())
-            .await?
-            .rows_affected();
+    pub async fn update_value(
+        &self,
+        module: &str,
+        key: &str,
+        sub_key: Option<&str>,
+        third_key: Option<&str>,
+        value: &str,
+    ) -> anyhow::Result<()> {
+        let mut vs = Vec::new();
+        let mut q = format!("UPDATE kvs SET value = ?");
+        vs.push(value);
+
+        if let Some(sub_key) = sub_key {
+            q = format!("{} ,sub_key = ?", q);
+            vs.push(sub_key);
+        }
+
+        if let Some(third_key) = third_key {
+            q = format!("{} ,third_key = ?", q);
+            vs.push(third_key);
+        }
+
+        q = format!("{} WHERE module = ? AND key = ? ", q);
+        vs.push(module);
+        vs.push(key);
+
+        let mut query = sqlx::query(&q);
+        for v in vs {
+            query = query.bind(v);
+        }
+
+        let _ = query.execute(self.pool.as_ref()).await?.rows_affected();
 
         Ok(())
     }

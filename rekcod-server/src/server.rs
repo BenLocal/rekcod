@@ -32,7 +32,7 @@ use crate::{
         node_proxy::{node_proxy_handler, NodeProxyClient},
     },
     db,
-    node::{node_manager, Node},
+    node::manager::{node_manager, Node},
 };
 
 pub fn api_routers(ctx: Arc<NodeProxyClient>) -> Router {
@@ -108,28 +108,54 @@ pub struct RegisterNodeResponse {}
 async fn register_node(
     Json(req): Json<RegisterNodeRequest>,
 ) -> Result<Json<ApiJsonResponse<RegisterNodeResponse>>, ApiError> {
-    let node = node_manager().get_node(&req.name).await?;
-
     let node_name = req.name.clone();
-    if let Some(cache) = node {
-        // check node has been registered and change
-        let reg_node = Node::try_from(req)?;
-        if !reg_node.eq(&cache.node) {
-            // update node info
-            info!("update node info: {:?}", reg_node);
+    {
+        let node = node_manager().get_node(&req.name).await?;
+        if let Some(cache) = node {
+            // check node has been registered and change
+            let reg_node = Node::try_from(req)?;
+            if !reg_node.eq(&cache.node) {
+                // update node info
+                info!("update node info: {:?}", reg_node);
+                let status = if reg_node.status {
+                    NodeStatus::Online
+                } else {
+                    NodeStatus::Offline
+                };
+                let repositry = db::repository().await;
+                repositry
+                    .kvs
+                    .update_value(
+                        "node",
+                        &node_name,
+                        Some(&status.to_string()),
+                        None,
+                        &serde_json::to_string(&reg_node)?,
+                    )
+                    .await?;
+
+                // update cache
+                node_manager().delete_node(&node_name).await?;
+            }
+        } else {
+            // insert node info
             let repositry = db::repository().await;
+            let reg_node = Node::try_from(req)?;
+            info!("insert node info: {:?}", reg_node);
+            let value = serde_json::to_string(&reg_node)?;
+            let status = if reg_node.status {
+                NodeStatus::Online
+            } else {
+                NodeStatus::Offline
+            };
+            // insert node info
             repositry
                 .kvs
-                .update_value(&db::kvs::KvsForDb {
+                .insert(&db::kvs::KvsForDb {
                     module: "node".to_string(),
                     key: node_name.clone(),
-                    sub_key: if reg_node.status {
-                        NodeStatus::Online
-                    } else {
-                        NodeStatus::Offline
-                    }
-                    .to_string(),
-                    value: serde_json::to_string(&reg_node)?,
+                    sub_key: status.to_string(),
+                    value: value,
                     ..Default::default()
                 })
                 .await?;
@@ -137,32 +163,10 @@ async fn register_node(
             // update cache
             node_manager().delete_node(&node_name).await?;
         }
-    } else {
-        // insert node info
-        let repositry = db::repository().await;
-        let reg_node = Node::try_from(req)?;
-        info!("insert node info: {:?}", reg_node);
-        let value = serde_json::to_string(&reg_node)?;
-        // insert node info
-        repositry
-            .kvs
-            .insert(&db::kvs::KvsForDb {
-                module: "node".to_string(),
-                key: node_name.clone(),
-                sub_key: if reg_node.status {
-                    NodeStatus::Online
-                } else {
-                    NodeStatus::Offline
-                }
-                .to_string(),
-                value: value,
-                ..Default::default()
-            })
-            .await?;
-
-        // update cache
-        node_manager().delete_node(&node_name).await?;
     }
+
+    // refresh node heartbeat
+    node_manager().refresh_node_heartbeat(&node_name).await?;
 
     let resp = RegisterNodeResponse {};
     Ok(ApiJsonResponse::success(resp).into())

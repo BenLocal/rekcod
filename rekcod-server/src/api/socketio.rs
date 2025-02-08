@@ -16,7 +16,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 use url::Url;
 
-use crate::node::{node_manager, NodeState};
+use crate::node::manager::{node_manager, NodeState};
 
 pub fn socketio_routers() -> SocketIoLayer {
     let (layer, io) = SocketIo::new_layer();

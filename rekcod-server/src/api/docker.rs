@@ -30,7 +30,7 @@ use rekcod_core::{
 };
 use tracing::info;
 
-use crate::node::{node_manager, NodeState};
+use crate::node::manager::{node_manager, NodeState};
 
 macro_rules! get_state {
     ($name:expr) => {

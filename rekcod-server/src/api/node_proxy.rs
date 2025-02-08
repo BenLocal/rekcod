@@ -13,7 +13,7 @@ use rekcod_core::{
 };
 use tracing::error;
 
-use crate::node::node_manager;
+use crate::node::manager::node_manager;
 
 pub type NodeProxyClient = hyper_util::client::legacy::Client<HttpConnector, Body>;
 

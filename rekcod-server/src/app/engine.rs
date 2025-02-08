@@ -10,7 +10,7 @@ use minijinja::{
 use minijinja_autoreload::AutoReloader;
 use serde::Serialize;
 
-use crate::{env::env_manager, node::node_manager};
+use crate::{env::env_manager, node::manager::node_manager};
 
 pub struct Engine {
     #[allow(dead_code)]
